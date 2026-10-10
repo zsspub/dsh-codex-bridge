@@ -17,7 +17,7 @@ pnpm install
 pnpm test
 pnpm pack --pack-destination /tmp
 cd /path/to/deepseek-harness
-pnpm dsh plugin --profile web add /tmp/dsh-codex-bridge-0.1.4.tgz
+pnpm dsh plugin --profile web add /tmp/dsh-codex-bridge-0.1.5.tgz
 pnpm run start:web --no-open
 ```
 
@@ -25,16 +25,9 @@ pnpm run start:web --no-open
 
 ### 登录卡片位置
 
-卡片注册在 DSH 的 `settings.models.footer`，位置由宿主设置页决定。原版 `0.2.0-rc.2` 在「添加模型提供商」之后渲染该区域。本仓库提供 [DSH 源码补丁](patches/dsh-0.2.0-rc.2-models-placement.patch)，将其移到提供商列表之后、添加按钮之前，同时更新宿主文档、目录与布局快照。
+插件向 LLM 服务注册可配置提供商。登录等待超时声明为可热更新配置，宿主从 Bundle entry id 生成 Settings namespace `dsh-codex-bridge`。客户端以此 namespace 为 key，将登录面板挂到公开的 `settings.models.provider-card` 扩展位。原版 DSH 在提供商列表内渲染这张卡片，因此它位于「添加模型提供商」上方；安装无需修改 DSH 源码或应用补丁。卡片标题与外框由宿主提供，登录状态和操作由插件提供。Bundle 的插件 entry id 必须保持 `dsh-codex-bridge`，以对应 Settings namespace。
 
-在干净的 DSH `release/v0.2.0-rc.2` 源码目录应用补丁后重新构建启动；下面的 `/path/to/dsh-codex-bridge` 替换为本插件仓库目录。已经包含该位置调整的宿主无需再应用。
-
-```sh
-git apply /path/to/dsh-codex-bridge/patches/dsh-0.2.0-rc.2-models-placement.patch
-pnpm run dev:web --no-open
-```
-
-也可以在 DSH 输入框执行 `/codex-login`，在 CLI 打开的浏览器页面完成登录，再执行 `/codex-login status` 确认。选择 **Codex（CLI 网页登录）** 下的模型；安装不修改现有默认模型。`/codex-login cancel` 取消等待并终止登录进程，卸载插件也会等待进程退出。
+也可以在 DSH 输入框执行 `/codex-login`，在 CLI 打开的浏览器页面完成登录，再执行 `/codex-login status` 确认。选择 **Codex Bridge** 下的模型；安装不修改现有默认模型。`/codex-login cancel` 取消等待并终止登录进程，卸载插件也会等待进程退出。
 
 CLI 只负责登录，DSH 的模型目录由插件依赖的 SDK 提供。更新 CLI 后还需要更新插件才能获得新模型列表。独立安装的 CLI 可运行 `codex update`；应用内置 CLI 若不支持自更新，请使用官方独立 CLI，并将 `codexCommand` 指向它。`0.1.2` 已加入 `gpt-6.1-sol`，升级保留插件原有登录。
 
@@ -63,7 +56,7 @@ CLI 登录时强制使用插件目录中的 `file` 凭据存储和 ChatGPT 登�
       name: dsh-codex-bridge
       config:
         provider: codex-bridge
-        displayName: Codex（CLI 网页登录）
+        displayName: Codex Bridge
         codexCommand: /path/to/codex
         authFile: /Users/your-name/.dsh/plugins/dsh-codex-bridge/codex/auth.json
         models: [gpt-6-sol, gpt-6-luna]
@@ -73,10 +66,10 @@ CLI 登录时强制使用插件目录中的 `file` 凭据存储和 ChatGPT 登�
 | 字段 | 默认值 | 用途 |
 | --- | --- | --- |
 | `provider` | `codex-bridge` | 唯一提供方路由名；避免与已有插件重复 |
-| `displayName` | `Codex（CLI 网页登录）` | 模型选择器名称 |
+| `displayName` | `Codex Bridge` | 模型选择器与设置卡片名称 |
 | `authFile` | DSH 数据目录中的插件专用缓存 | 必须是绝对路径，文件名为 `auth.json`；父目录作为 CLI 的 `CODEX_HOME` |
 | `codexCommand` | `codex` | 登录用 CLI 可执行文件；默认从 PATH 查找，可指定绝对路径 |
-| `loginTimeoutMs` | `300000` | 等待任一登录方式的最长时间；默认 5 分钟，设备码自身的 15 分钟有效期不延长插件期限 |
+| `loginTimeoutMs` | `300000` | 等待任一登录方式的最长时间；修改实时作用于下一次登录，默认 5 分钟，设备码自身的 15 分钟有效期不延长插件期限 |
 | `loginKillTimeoutMs` | `2000` | 取消后强制终止 CLI 的等待时间 |
 | `models` | `[]` | 空数组表示 SDK 全目录；未知或重复模型在加载时失败 |
 | `baseURL` | `https://chatgpt.com/backend-api` | Codex 兼容接口地址；登录令牌会发送到该地址 |
@@ -95,7 +88,7 @@ CLI 负责将浏览器授权结果写入插件专用 `auth.json`。模型请求�
 
 从本地 `0.1.0` 升级到 `0.1.1` 后，需要执行一次 `/codex-login`。默认认证目录已改为插件专用目录，旧版使用的本机登录不会自动迁移。请移除指向本机 `.codex/auth.json` 的旧 `authFile` 配置；登录入口会拒绝本机 Codex 目录。
 
-设置中的 **网页登录** 由服务端 CLI 打开服务所在机器的浏览器，适用于本地 Web 服务；远程访问需要处理 CLI 的 localhost 回调。**设备码登录** 可以在访问设置的浏览器打开 OpenAI 认证页面，无需端口转发；若账号未启用设备码授权，需要先在 ChatGPT 安全设置中启用。界面通过 Models footer 扩展挂载，使用既有按钮和主题变量；字典支持中文与英文。Host 只向已通过 Connection 认证的浏览器返回凭据是否有效、登录进度、脱敏错误，以及等待期间的设备码和固定 OpenAI 认证页面。设备码只保留在当前登录进程的内存中，完成、取消、失败或卸载后清除；不返回令牌、CLI 输出或 OAuth 授权链接。
+设置中的 **网页登录** 由服务端 CLI 打开服务所在机器的浏览器，适用于本地 Web 服务；远程访问需要处理 CLI 的 localhost 回调。**设备码登录** 可以在访问设置的浏览器打开 OpenAI 认证页面，无需端口转发；若账号未启用设备码授权，需要先在 ChatGPT 安全设置中启用。界面通过模型提供商卡片扩展挂载，使用既有按钮和主题变量；字典支持中文与英文。Host 只向已通过 Connection 认证的浏览器返回凭据是否有效、登录进度、脱敏错误，以及等待期间的设备码和固定 OpenAI 认证页面。设备码只保留在当前登录进程的内存中，完成、取消、失败或卸载后清除；不返回令牌、CLI 输出或 OAuth 授权链接。
 
 没有加载 DSH 人机命令服务的 Profile，可手动使用相同的独立目录登录：
 

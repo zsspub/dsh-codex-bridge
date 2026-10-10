@@ -2,13 +2,19 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-fs'
 import { resolveImageAttachmentAccess } from '@deepseek-ai/dsh-llm'
-import { Config } from './config.js'
+import schema from '@deepseek-ai/schemastery'
+import { configFields, type Config as ResolvedConfig } from './config.js'
 import { createCodexAdapter } from './adapter.js'
 import { CodexLogin } from './login.js'
 import { registerLoginCommand } from './commands.js'
 import { registerSettingsLogin } from './settings-login.js'
+import { SETTINGS_NAMESPACE } from './protocol.js'
 
-export { Config, defaultAuthFile } from './config.js'
+export { defaultAuthFile } from './config.js'
+/** Live login timeout exposes the plugin's Settings namespace without remounting. */
+export const Config = schema.object({
+  ...configFields, loginTimeoutMs: configFields.loginTimeoutMs.volatile(),
+})
 export { createCodexAdapter } from './adapter.js'
 export type { HostHooks } from './adapter.js'
 export { readCodexAccessToken } from './auth.js'
@@ -22,9 +28,12 @@ export const inject = ['llm']
 
 /** Register the provider under the plugin fiber for HMR-safe disposal.
  * @param ctx - DSH context owning this plugin instance.
- * @param config - validated deployment settings.
+ * @param liveConfig - Validated settings with a shared login timeout reference.
  */
-export function apply(ctx: Context, config: Config): void {
+export function apply(ctx: Context, liveConfig: ReturnType<typeof Config>): void {
+  const config: ResolvedConfig = {
+    ...liveConfig, get loginTimeoutMs() { return liveConfig.loginTimeoutMs.get() },
+  }
   const login = new CodexLogin(config)
   ctx.effect(() => () => login.dispose(), 'codex CLI login lifecycle')
   ctx.inject(['commands'], child => registerLoginCommand(child, config, login))
@@ -38,5 +47,9 @@ export function apply(ctx: Context, config: Config): void {
     ),
     onReplayDegrade: ({ reason }) => ctx.logger.warn(`Codex 历史消息按通用格式重放：${reason}`),
   })
+  ctx.llm.registerConfigurableProviders([{
+    provider: config.provider, displayName: config.displayName,
+    settingsNs: SETTINGS_NAMESPACE, settingsPath: [],
+  }])
   ctx.llm.registerAdapter([config.provider], adapter)
 }

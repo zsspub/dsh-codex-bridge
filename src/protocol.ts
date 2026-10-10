@@ -1,6 +1,9 @@
 /** Login progress messages shared by the Settings card and Host. */
 import { z } from 'zod'
 
+/** Bundle entry id used by the provider directory and keyed Settings card. */
+export const SETTINGS_NAMESPACE = 'dsh-codex-bridge'
+
 /** Endpoints served by the authenticated Connection Fetch registry. */
 export const LOGIN_ENDPOINTS = ['status', 'login/start', 'login/cancel'] as const
 /** Login choices supported by the CLI. */

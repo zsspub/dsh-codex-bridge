@@ -4,6 +4,7 @@ import { runInNewContext } from 'node:vm'
 import { createRequire } from 'node:module'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import assert from 'node:assert/strict'
 
 const require = createRequire(import.meta.url)
 let loaded
@@ -28,7 +29,10 @@ try {
     get: () => ({ rpc: { call: async () => ({ ok: true, value: {} }) } }),
     slots: { inject: (_name, callback) => callback(), register: (options, component) => { card = { options, component } } },
   })
+  assert.equal(card.options.name, 'settings.models.provider-card')
+  assert.equal(card.options.key, 'dsh-codex-bridge')
   const html = renderToStaticMarkup(createElement(card.component, { ...card.options.inject(), t: key => dictionaries.zh[key] }))
+  assert.ok(!html.includes('<h3'), 'Provider header belongs to the host row')
   if (!html.includes('data-codex-login-card') || !html.includes('Codex Bridge')) throw new Error('Browser card did not render')
   console.log(JSON.stringify({ ok: true, shipped_bundle_rendered: true, slot: card.options.name }))
 } finally {

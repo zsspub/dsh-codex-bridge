@@ -25,7 +25,6 @@ export function LoginPanel({ t, status, busy, problem, onLogin, onCancel, onRefr
   const detail = pending ? status?.device ? 'deviceWaiting' : 'waiting' : status?.authenticated ? 'connected' : status?.credential === 'invalid' ? 'invalid' : 'instruction'
   const failure = problem ?? (!status?.authenticated && status?.phase === 'failed' ? status.failure ?? 'failed' : undefined)
   return <section className={styles.card} aria-label={t('title')} data-codex-login-card="true">
-    <h3 className={styles.title}>{t('title')}</h3>
     <div className={styles.head}>
       <span className={styles.heading}>{t('heading')}</span>
       {status && <span role="status" className={styles.badge}><StateDot state={pending ? 'warning' : status.authenticated ? 'done' : 'idle'} />{t(badge)}</span>}

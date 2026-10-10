@@ -1,15 +1,12 @@
 .card {
-  border: 0.5px solid var(--dsw-alias-settings-card-stroke);
-  background: var(--dsw-alias-settings-card-fill);
-  border-radius: var(--dsw-radius-xl);
-  padding: 12px 14px;
+  border-top: 0.5px solid var(--dsw-alias-border-l3);
+  padding-top: 12px;
   color: var(--dsw-alias-label-primary);
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
-.title, .heading { margin: 0; font-size: 14px; line-height: 22px; font-weight: 500; }
-.title { padding-bottom: 12px; border-bottom: 0.5px solid var(--dsw-alias-border-l3); }
+.heading { margin: 0; font-size: 14px; line-height: 22px; font-weight: 500; }
 .head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .description, .detail { margin: 0; font-size: 13px; line-height: 20px; color: var(--dsw-alias-label-secondary); }
 .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; line-height: 18px; padding: 2px 8px; border-radius: var(--dsw-radius-xs); background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-secondary); }

@@ -6,7 +6,7 @@ import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
 export interface Config {
   /** Unique DSH provider route; independent from the built-in openai-codex route. */
   provider: string
-  /** Provider name displayed in the model selector. */
+  /** Provider name displayed in the model selector and Settings card. */
   displayName: string
   /** Plugin-owned auth.json; its parent is passed to the CLI as CODEX_HOME. */
   authFile: string
@@ -37,10 +37,10 @@ export function defaultAuthFile(): string {
   return dshHomePath('plugins', 'dsh-codex-bridge', 'codex', 'auth.json')
 }
 
-/** Cordis schema; credentials never appear in plugin configuration. */
-export const Config: schema<Partial<Config>, Config> = schema.object({
+/** Shared field definitions for plain configuration and the live plugin schema. */
+export const configFields = {
   provider: schema.string().default('codex-bridge'),
-  displayName: schema.string().default('Codex（CLI 网页登录）'),
+  displayName: schema.string().default('Codex Bridge'),
   authFile: schema.string().default(defaultAuthFile()),
   codexCommand: schema.string().default('codex'),
   loginTimeoutMs: schema.number().step(1).min(1).max(2_147_483_647).default(300_000),
@@ -51,4 +51,7 @@ export const Config: schema<Partial<Config>, Config> = schema.object({
   maxRequestImageBytes: schema.number().step(1).min(1).default(20 * 1024 * 1024),
   requestImagePixelBudget: schema.number().step(1).min(1).default(16_000_000),
   requestImageMaxBytes: schema.number().step(1).min(1).default(4 * 1024 * 1024),
-})
+}
+
+/** Plain configuration for adapters and standalone login owners. */
+export const Config: schema<Partial<Config>, Config> = schema.object(configFields)

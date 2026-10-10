@@ -7,6 +7,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings-models/client'
 import { LoginCard } from './LoginCard.js'
 import { createLoginApi } from './api.js'
 import { en, zh, type LoginKey } from './locales.js'
+import { SETTINGS_NAMESPACE } from '../protocol.js'
 
 declare const __CODEX_STYLE__: string
 declare module '@deepseek-ai/dsh-client-ui-slots' {
@@ -15,7 +16,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 /** Services required by the browser card. */
 export const inject = ['slots', 'locale', 'connection']
 
-/** Install dictionaries, scoped styles and the Models footer card.
+/** Install dictionaries, scoped styles and login within the provider card.
  * @param ctx - Browser plugin context; withdrawals follow its fiber.
  */
 export function apply(ctx: Context): void {
@@ -28,8 +29,8 @@ export function apply(ctx: Context): void {
   }, 'codex login styles')
   const connection = ctx.get('connection') as ConnectionHandle
   const api = createLoginApi(connection.rpc)
-  ctx.slots.inject('settings.models.footer', () => ctx.slots.register({
-    name: 'settings.models.footer', id: 'codex-bridge-login', order: 20,
+  ctx.slots.inject('settings.models.provider-card', () => ctx.slots.register({
+    name: 'settings.models.provider-card', key: SETTINGS_NAMESPACE,
     locale: 'codex-bridge.login', inject: () => ({ api }),
   }, LoginCard))
 }

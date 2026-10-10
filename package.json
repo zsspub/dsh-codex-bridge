@@ -1,6 +1,6 @@
 {
   "name": "dsh-codex-bridge",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Third-party Codex model provider for DeepSeek Harness with isolated CLI browser and device code login",
   "type": "module",
   "main": "lib/index.js",
@@ -20,8 +20,7 @@
     "lib",
     "cordis.patch.yml",
     "README.md",
-    "LICENSE",
-    "patches"
+    "LICENSE"
   ],
   "dsh": {
     "bundle": {
