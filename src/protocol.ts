@@ -6,7 +6,15 @@ export const SETTINGS_NAMESPACE = 'dsh-codex-bridge'
 
 /** Endpoints served by the authenticated Connection Fetch registry. */
 export const LOGIN_ENDPOINTS = ['status', 'login/start', 'login/cancel'] as const
-/** Login choices supported by the CLI. */
+/** Authenticated navigation route; the OAuth URL is omitted from status JSON. */
+export const BROWSER_LOGIN_PATH = '/api/codex-bridge/login/open'
+/** Restrict SDK authorization links to the OpenAI HTTPS authorization page. */
+export const browserAuthorizationUrlSchema = z.string().max(16_384).url().refine(value => {
+  let url: URL
+  try { url = new URL(value) } catch (_error) { return false }
+  return url.origin === 'https://auth.openai.com' && url.pathname === '/oauth/authorize' && !url.username && !url.password && !url.hash
+})
+/** Login choices supported by the SDK. */
 export const loginMethodSchema = z.enum(['browser', 'device'])
 /** Selected authorization flow. */
 export type LoginMethod = z.infer<typeof loginMethodSchema>
@@ -23,7 +31,8 @@ export const loginViewSchema = z.strictObject({
   phase: z.enum(['idle', 'waiting', 'authorized', 'cancelled', 'failed']),
   credential: z.enum(['valid', 'missing', 'expired', 'invalid']),
   device: deviceChallengeSchema.optional(),
-  failure: z.enum(['executable', 'timeout', 'failed']).optional(),
+  browser: z.literal(true).optional(),
+  failure: z.enum(['timeout', 'forbidden', 'failed']).optional(),
 })
 /** Safe Settings snapshot of the plugin's independent login. */
 export type LoginView = z.infer<typeof loginViewSchema>

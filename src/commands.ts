@@ -10,7 +10,7 @@ import type { CodexLogin } from './login.js'
 /** Register the login, status and cancellation entry on DSH's command surface.
  * @param ctx - Context carrying the human command service.
  * @param config - Plugin-owned cache location.
- * @param login - Login process owner shared with plugin teardown.
+ * @param login - SDK authorization owner shared with plugin teardown.
  */
 export function registerLoginCommand(ctx: Context, config: Config, login: CodexLogin): void {
   ctx.commands.register({
@@ -33,7 +33,7 @@ export function registerLoginCommand(ctx: Context, config: Config, login: CodexL
         }
         if (input !== '') return { kind: 'error', text: '用法：/codex-login [status|cancel]' }
         await login.start()
-        return { kind: 'success', text: 'Codex 浏览器授权已启动。完成后运行 /codex-login status 查看结果。' }
+        return { kind: 'success', text: 'Codex 网页授权已启动，请在设置 → Codex 登录中打开登录页面。完成后运行 /codex-login status 查看结果。' }
       } catch (error) {
         if (error instanceof LlmError) return { kind: 'error', text: error.message }
         throw error

@@ -7,3 +7,4 @@ coverage/
 .dsh/
 auth.json
 artifacts/
+.DS_Store

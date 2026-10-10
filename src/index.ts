@@ -35,7 +35,7 @@ export function apply(ctx: Context, liveConfig: ReturnType<typeof Config>): void
     ...liveConfig, get loginTimeoutMs() { return liveConfig.loginTimeoutMs.get() },
   }
   const login = new CodexLogin(config)
-  ctx.effect(() => () => login.dispose(), 'codex CLI login lifecycle')
+  ctx.effect(() => () => login.dispose(), 'codex SDK login lifecycle')
   ctx.inject(['commands'], child => registerLoginCommand(child, config, login))
   ctx.inject(['connection'], child => registerSettingsLogin(child, config, login))
   const adapter = createCodexAdapter(config, {

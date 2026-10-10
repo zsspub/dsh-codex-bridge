@@ -1,11 +1,10 @@
 /** Public DSH adapter composition over pi-ai's native Codex provider. */
 import { InMemoryCredentialStore, type Provider } from '@earendil-works/pi-ai'
 import { openaiCodexProvider } from '@earendil-works/pi-ai/providers/openai-codex'
-import { openaiCodexProvider as catalogProvider } from 'pi-ai-catalog/providers/openai-codex'
 import { PiAiAdapter, type PiAiAdapterOptions, type ResolvedPiAiProviderProfile } from '@deepseek-ai/dsh-llm-pi-ai'
 import { LlmError, attributionHeaders, resolveRetryPolicy, type GenerateOptions, type PreparedAdapterCall } from '@deepseek-ai/dsh-llm'
 import type { Config } from './config.js'
-import { readCodexAccessToken } from './auth.js'
+import { resolveCodexAccessToken } from './auth.js'
 
 /** Reject options the subscription endpoint cannot enforce. */
 function validateOptions(options: GenerateOptions): void {
@@ -51,11 +50,10 @@ export function createCodexAdapter(config: Config, hooks: HostHooks = {}): PiAiA
     throw new LlmError('baseURL 必须是无凭据、查询参数和片段的 HTTP(S) URL。', 'INVALID_CONFIG')
   }
   const native = openaiCodexProvider()
-  // DSH rc.2 owns the 0.87 stream types; the newer SDK supplies model metadata only.
-  const catalog = catalogProvider().getModels()
+  const catalog = native.getModels()
   const selected = config.models.length ? config.models.map((id) => {
     const found = catalog.find(model => model.id === id)
-    if (!found) throw new LlmError(`Codex SDK 未收录模型 ${id}，请检查 models 或升级插件依赖。`, 'INVALID_CONFIG')
+    if (!found) throw new LlmError(`Codex SDK 未收录模型 ${id}，请检查 models 或升级宿主 pi-ai。`, 'INVALID_CONFIG')
     return found
   }) : catalog
   if (new Set(selected.map(model => model.id)).size !== selected.length) {
@@ -78,7 +76,7 @@ export function createCodexAdapter(config: Config, hooks: HostHooks = {}): PiAiA
       },
     }),
     // The request's validated OAuth access token is supplied as pi-ai's key override.
-    // Omitting OAuth methods prevents the SDK from rotating Codex-owned refresh tokens.
+    // Omitting OAuth methods prevents the SDK from rotating ambient Codex credentials.
     auth: { apiKey: {
       name: 'Codex auth.json',
       resolve: ({ credential }) => Promise.resolve(credential?.key
@@ -103,7 +101,7 @@ export function createCodexAdapter(config: Config, hooks: HostHooks = {}): PiAiA
   const profiles = new Map([[config.provider, profile]])
   return new CodexAdapter({
     profiles: () => profiles,
-    resolveApiKey: () => readCodexAccessToken(config.authFile),
+    resolveApiKey: () => resolveCodexAccessToken(config.authFile, undefined, config.authRefreshTimeoutMs),
     auth: {
       credentials: new InMemoryCredentialStore(),
       authContext: { env: async () => undefined, fileExists: async () => false },

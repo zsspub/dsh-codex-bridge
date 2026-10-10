@@ -1,20 +1,23 @@
-import { describe, expect, it } from 'vitest'
+vi.mock('../src/oauth.js', async () => { const { sdk } = await import('./sdk-mock.js'); return { codexOAuth: () => sdk } })
+import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
+import { openaiCodexProvider } from '@earendil-works/pi-ai/providers/openai-codex'
 import LlmRuntime from '@deepseek-ai/dsh-llm'
 import CommandRuntime from '@deepseek-ai/dsh-commands'
 import { HostConnectionService } from '@deepseek-ai/dsh-client-connection'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import * as plugin from '../src/index.js'
 import { authFixture, config } from './helpers.js'
-import { cliFixture } from './cli-fixture.js'
+import { sdkFixture } from './sdk-fixture.js'
+import { BROWSER_LOGIN_PATH } from '../src/protocol.js'
 
 describe('Cordis model registration', () => {
   it('reads the latest timeout when the next login starts without replacing the provider fiber', async () => {
-    const fixture = await cliFixture('wait')
+    const fixture = await sdkFixture('wait')
     const ctx = new Context()
     const runtime = await ctx.plugin(LlmRuntime)
     const connection = await ctx.plugin(child => { new HostConnectionService(child, [], {} as ConstructorParameters<typeof HostConnectionService>[2]) })
-    const settings = config({ authFile: fixture.authFile, codexCommand: fixture.executable, loginTimeoutMs: 10_000 })
+    const settings = config({ authFile: fixture.authFile, loginTimeoutMs: 10_000 })
     let timeoutMs = settings.loginTimeoutMs
     const fiber = await ctx.plugin({ inject: plugin.inject, apply: (child: Context) => plugin.apply(child, {
       ...settings, loginTimeoutMs: { get: () => timeoutMs },
@@ -27,7 +30,9 @@ describe('Cordis model registration', () => {
     }))).json()
     try {
       expect((await request('login/start')).result.value.phase).toBe('waiting')
+      expect((await shared.fetch(new Request('http://localhost' + BROWSER_LOGIN_PATH))).status).toBe(302)
       await request('login/cancel')
+      expect((await shared.fetch(new Request('http://localhost' + BROWSER_LOGIN_PATH))).status).toBe(409)
       timeoutMs = 1
       expect(fiber.uid).toBe(uid)
       expect((await request('login/start')).result.error.code).toBe('CODEX_LOGIN_TIMEOUT')
@@ -51,6 +56,7 @@ describe('Cordis model registration', () => {
       expect((await (await shared.fetch(request())).json()).result.value.authenticated).toBe(true)
       await fiber.dispose()
       expect((await shared.fetch(request())).status).toBe(404)
+      expect((await shared.fetch(new Request('http://localhost' + BROWSER_LOGIN_PATH))).status).toBe(404)
     } finally { await fiber.dispose(); await connection.dispose(); await runtime.dispose(); await fixture.cleanup() }
   })
 
@@ -64,9 +70,9 @@ describe('Cordis model registration', () => {
     })
     const models = await ctx.llm.listModels('codex-bridge')
     expect(models.some(model => model.id === 'gpt-6-sol')).toBe(true)
-    expect(models.some(model => model.id === 'gpt-6.1-sol')).toBe(true)
+    expect(models.map(model => model.id)).toEqual(openaiCodexProvider().getModels().map(model => model.id))
     expect(models.every(model => model.provider === 'codex-bridge')).toBe(true)
-    const model = await ctx.llm.resolveModelInfo('codex-bridge', 'gpt-6.1-sol')
+    const model = await ctx.llm.resolveModelInfo('codex-bridge', 'gpt-6-sol')
     expect(model.inputModalities).toContain('image')
     expect(model.reasoning?.efforts.map(effort => effort.id)).toContain('high')
     await fiber.dispose()

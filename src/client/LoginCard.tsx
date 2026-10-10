@@ -2,7 +2,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Button, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Translate } from '@deepseek-ai/dsh-client-ui-slots'
-import type { LoginMethod, LoginView } from '../protocol.js'
+import { BROWSER_LOGIN_PATH, type LoginMethod, type LoginView } from '../protocol.js'
 import { LoginActionError, type LoginApi } from './api.js'
 import type { LoginKey } from './locales.js'
 import styles from './LoginCard.module.css'
@@ -36,6 +36,7 @@ export function LoginPanel({ t, status, busy, problem, onLogin, onCancel, onRefr
       <code className={styles.code}>{status.device.userCode}</code>
       <a className={styles.link} href={status.device.verificationURI} target="_blank" rel="noopener noreferrer">{t('openVerification')}</a>
     </div>}
+    {pending && status?.browser && <a className={styles.link} href={BROWSER_LOGIN_PATH} target="_blank" rel="noopener noreferrer">{t('openBrowserLogin')}</a>}
     <div className={styles.notice} role={failure ? 'alert' : undefined}>{failure ? t(failure) : null}</div>
     <div className={styles.actions}>
       {status && !status.authenticated && !pending && <>
@@ -50,7 +51,7 @@ export function LoginPanel({ t, status, busy, problem, onLogin, onCancel, onRefr
 
 /** Load status on mount/focus and poll sequentially only while awaiting login.
  * @param props - Shared API and locale dictionary binding.
- * @returns Connected Settings card; closing Settings leaves CLI login running.
+ * @returns Connected Settings card; closing Settings leaves SDK authorization running.
  */
 export function LoginCard({ api, t }: LoginCardProps): ReactNode {
   const [status, setStatus] = useState<LoginView>()
@@ -82,8 +83,9 @@ export function LoginCard({ api, t }: LoginCardProps): ReactNode {
   const act = async (method: LoginMethod | 'cancel'): Promise<void> => {
     setBusy(true); setProblem(undefined)
     try { setStatus(await (method === 'cancel' ? api.call('login/cancel') : api.start(method))); setRevision(value => value + 1) } catch (error) {
-      setProblem(error instanceof LoginActionError && error.code === 'CODEX_LOGIN_EXECUTABLE' ? 'executable'
+      setProblem(error instanceof LoginActionError && error.code === 'CODEX_LOGIN_FORBIDDEN' ? 'forbidden'
         : error instanceof LoginActionError && error.code === 'CODEX_LOGIN_TIMEOUT' ? 'timeout' : 'failed')
+      setRevision(value => value + 1)
     } finally { setBusy(false) }
   }
   return <LoginPanel t={t} status={status} busy={busy} problem={problem}

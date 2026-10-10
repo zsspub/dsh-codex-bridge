@@ -21,13 +21,14 @@ async function collect(stream: AsyncIterable<StreamChunk>) {
 }
 
 describe('native Codex HTTP/SSE protocol', () => {
-  it('sends local auth, DSH attribution, system instructions and native reasoning; finishes after usage', async () => {
+  it('streams a host catalog model with local auth and reasoning', async () => {
+    const model = 'gpt-6-sol'
     const auth = await authFixture()
     const endpoint = await mockEndpoint([sse(textEvents())])
     cleanups.push(auth.cleanup, endpoint.cleanup)
     const adapter = createCodexAdapter(config({ authFile: auth.path, baseURL: endpoint.url }))
     const { chunks, assembler } = await collect(adapter.stream({
-      provider: 'codex-bridge', model: 'gpt-6-sol', system: 'Test instructions',
+      provider: 'codex-bridge', model, system: 'Test instructions',
       messages: [{ role: 'user', content: [{ type: 'text', text: 'Hi' }] }],
       reasoningEffort: ReasoningEffortId('low'),
     }))
@@ -41,7 +42,7 @@ describe('native Codex HTTP/SSE protocol', () => {
     expect(request.headers.authorization).toMatch(/^Bearer /)
     expect(request.headers['chatgpt-account-id']).toBe('test-account')
     expect(request.headers['user-agent']).toBe(attributionHeaders()['user-agent'])
-    expect(requestBody.parse(request.body)).toMatchObject({ model: 'gpt-6-sol', store: false, stream: true, instructions: 'Test instructions', reasoning: { effort: 'low' } })
+    expect(requestBody.parse(request.body)).toMatchObject({ model, store: false, stream: true, instructions: 'Test instructions', reasoning: { effort: 'low' } })
   })
 
   it('preserves tool arguments and encrypted reasoning when replaying a tool result', async () => {

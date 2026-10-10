@@ -1,126 +1,105 @@
-# dsh-codex-bridge
+# @zengshushu/dsh-codex-bridge
 
-第三方 DeepSeek Harness 模型插件，兼容 **DSH `0.2.0-rc.2`**。通过 Codex CLI 使用网页登录或设备码登录 ChatGPT，以 `codex-bridge` 提供方直接调用 Codex 模型。插件使用自己的凭据目录，不继承本机 Codex 登录。DSH 负责会话、工具执行、日志和恢复；插件复用公开的 `PiAiAdapter` 与 `@earendil-works/pi-ai` Codex 协议实现。
+第三方 DeepSeek Harness 模型插件，兼容 **DSH `0.2.0-rc.2`**。通过 SDK 直接完成 ChatGPT 网页登录或设备码登录，以 `codex-bridge` 提供方调用 Codex 模型。**无需安装 Codex CLI**。插件使用自己的凭据目录，不继承本机 Codex 登录；DSH 负责会话、工具执行、日志和恢复。模型适配复用公开的 `PiAiAdapter` 与 `@earendil-works/pi-ai` Codex 协议实现。
 
-支持流式文本、思考级别、工具调用、工具结果续接、加密思考记录重放、用量统计、取消和 DSH 持久化图片输入。可用模型以 `@earendil-works/pi-ai@1.1.0` 目录为准，包含 GPT-6.1 Sol、GPT-6 Sol、Astra、Luna 等；目录不代表账号已获授权，实际成功请求才能确认模型权限。
+支持流式文本、思考级别、工具调用、工具结果续接、加密思考记录重放、用量统计、取消和 DSH 持久化图片输入。模型目录完全跟随宿主 pi-ai 的 Codex 目录；目录不表示账号获得模型权限，实际请求才能确认。
 
-## 安装到本机 DSH
+## 安装
 
-需要 Node `^22.19.0 || >=24.0.0`、pnpm 11，以及支持 `codex login` 的 Codex CLI。默认凭据路径为 `$DSH_HOME/plugins/dsh-codex-bridge/codex/auth.json`，未设置 `DSH_HOME` 时使用 `~/.dsh`。插件忽略继承的 `CODEX_HOME`，不会复制 `~/.codex/auth.json`。
-
-以下命令中的 `/path/to/deepseek-harness` 替换为 DSH 源码目录。
+需要 Node `^22.19.0 || >=24.0.0`。公网 npm 包包含预编译服务端 ESM、浏览器模块和类型声明，安装时无需构建插件；pnpm 仍会安装运行时依赖。使用 DSH 官方插件管理命令安装：
 
 ```sh
-git clone https://github.com/zsspub/dsh-codex-bridge.git
-cd dsh-codex-bridge
-pnpm install
-pnpm test
-pnpm pack --pack-destination /tmp
-cd /path/to/deepseek-harness
-pnpm dsh plugin --profile web add /tmp/dsh-codex-bridge-0.1.5.tgz
-pnpm run start:web --no-open
+dsh plugin --profile web add @zengshushu/dsh-codex-bridge@0.1.13
 ```
 
-也可以通过 `dsh plugin --profile web add github:zsspub/dsh-codex-bridge#<commit-sha>` 安装已审阅的提交。GitHub 源码包需要执行 `prepare` 编译 Host 和浏览器模块，安装前必须在目标 Profile 的 `pnpm-workspace.yaml` 中单独允许本插件构建。默认 Profile 路径为 `~/.dsh/profiles/web`；自定义 `DSH_HOME` 时使用 `$DSH_HOME/profiles/web`。pnpm 10 将插件加入已有的白名单，保留其他条目：
+也可在 DSH 插件市场选择本地压缩包，或通过命令安装 tgz：
 
-```yaml
-onlyBuiltDependencies:
-  - dsh-codex-bridge
+```sh
+dsh plugin --profile web add /path/to/zengshushu-dsh-codex-bridge-0.1.13.tgz
 ```
 
-pnpm 11 使用 `allowBuilds`，将 `dsh-codex-bridge: true` 合入已有映射。只使用与当前 pnpm 版本对应的一种策略；不要与 `onlyBuiltDependencies` 混用。遇到 `ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED`，补齐此授权后重试安装即可，无需开启全局构建权限。
+从 DSH 源码运行时使用 `pnpm dsh plugin --profile web add ...`。升级后重启 DSH，再刷新浏览器；systemd 部署可执行 `systemctl restart deepseek-harness.service`。插件不会自动改动 DSH 的源码、默认模型或安装其他程序。
 
-启动后打开 **设置 → 模型 → Codex Bridge**。未登录时可选择 **网页登录** 或 **设备码登录**。网页登录由 CLI 打开浏览器；设备码登录会显示一次性验证码和 **打开认证页面** 入口，在该页面登录 ChatGPT 并输入设备码完成授权；卡片在等待期间自动更新，完成后显示 **已登录**。等待期间可取消；关闭设置不会中断登录，重新打开或点击 **刷新状态** 可读取最新状态。卡片只验证插件专用凭据的格式和有效期，不表示账号获得某个模型的使用权限。
+从 0.1.12 开始，插件通过 peer dependency 复用宿主的 `@earendil-works/pi-ai@0.87.1`，不安装另一套 SDK 或模型目录包。DSH `0.2.0-rc.2` 的 `dsh-llm-pi-ai` 提供该版本；宿主 Profile 必须能解析这项依赖。兼容范围锁定实际测试版本，其他版本需重新验证。
 
-原版 DSH `0.2.0-rc.2` 只在 loopback 页面加载宿主 Settings 配置；公网域名下的模型页可能显示 `settings are unavailable in this browser`。远程服务请通过 SSH 转发 Web 端口，并在浏览器访问 `http://127.0.0.1:<转发端口>/`，完成 DSH 页面认证后使用设置卡片。设备码授权本身无需转发 CLI 的 `1455` 回调端口。插件沿用宿主设置行为，不修改 DSH 本体。
+预编译 npm 包和 tgz 不要求为插件增加构建授权。若安装器仍报告 `@google/genai` 或 `protobufjs` 的构建脚本被拦截，需要按错误明细检查宿主已有依赖的 pnpm 策略；本版本不再直接或通过目录别名引入新的 pi-ai 依赖树。GitHub 源码安装会执行 `prepare`，仍需要授权 `@zengshushu/dsh-codex-bridge` 构建；开发环境还需要运行 esbuild 的安装脚本。日常安装优先使用 npm 包。
 
-### 登录卡片位置
+从无 scope 的旧包迁移时，先卸载 `dsh-codex-bridge`，再安装 `@zengshushu/dsh-codex-bridge`，避免同时注册相同的提供商和设置页。插件 entry id 与凭据目录仍为 `dsh-codex-bridge`，原插件专用凭据可继续读取：
 
-插件向 LLM 服务注册可配置提供商。登录等待超时声明为可热更新配置，宿主从 Bundle entry id 生成 Settings namespace `dsh-codex-bridge`。客户端以此 namespace 为 key，将登录面板挂到公开的 `settings.models.provider-card` 扩展位。原版 DSH 在提供商列表内渲染这张卡片，因此它位于「添加模型提供商」上方；安装无需修改 DSH 源码或应用补丁。卡片标题与外框由宿主提供，登录状态和操作由插件提供。Bundle 的插件 entry id 必须保持 `dsh-codex-bridge`，以对应 Settings namespace。
-
-也可以在 DSH 输入框执行 `/codex-login`，在 CLI 打开的浏览器页面完成登录，再执行 `/codex-login status` 确认。选择 **Codex Bridge** 下的模型；安装不修改现有默认模型。`/codex-login cancel` 取消等待并终止登录进程，卸载插件也会等待进程退出。
-
-CLI 只负责登录，DSH 的模型目录由插件依赖的 SDK 提供。更新 CLI 后还需要更新插件才能获得新模型列表。独立安装的 CLI 可运行 `codex update`；应用内置 CLI 若不支持自更新，请使用官方独立 CLI，并将 `codexCommand` 指向它。`0.1.2` 已加入 `gpt-6.1-sol`，升级保留插件原有登录。
-
-为兼容 DSH `0.2.0-rc.2` 的公开流类型，协议运行时保持 `pi-ai@0.87.1`；`pi-ai-catalog` 是 `@earendil-works/pi-ai@1.1.0` 的 npm 别名，仅提供最新模型元数据。插件不在两个版本之间传递流或带品牌的会话对象。
-
-pnpm 11 首次安装如果提示 `ERR_PNPM_IGNORED_BUILDS`，将以下脚本策略合入 `~/.dsh/profiles/web/pnpm-workspace.yaml`，再重试。Codex 路径不需要 Google SDK 和 protobuf 的安装脚本：
-
-```yaml
-allowBuilds:
-  dsh-codex-bridge: true
-  esbuild: true
-  '@google/genai': false
-  protobufjs: false
+```sh
+dsh plugin --profile web remove dsh-codex-bridge
+dsh plugin --profile web add @zengshushu/dsh-codex-bridge@0.1.13
 ```
 
-失败的安装若已留下依赖却没有启用 Bundle，先执行 `pnpm dsh plugin --profile web remove dsh-codex-bridge`，再执行上述 `add` 命令。
+## 登录
 
-CLI 登录时强制使用插件目录中的 `file` 凭据存储和 ChatGPT 登录方式。继承环境中的 API Key、access token 和其他密钥变量不会传给登录进程。网页登录使用 CLI 的 localhost 回调，通常需要端口 `1455` 空闲；远程 DSH 需要将该端口转发到浏览器所在机器。详见 [Codex 认证文档](https://learn.chatgpt.com/docs/auth)。插件仅启动登录命令，不启动 Codex Agent。
+打开 **设置 → Codex 登录**，选择 **网页登录** 或 **设备码登录**。页面不再检测 CLI，不显示 CLI 安装提示。网页登录准备完成后，点击 **打开登录页面** 在新标签页完成授权；设备码登录会显示一次性验证码与 **打开认证页面**。等待期间自动刷新，可取消登录；关闭设置不会中断授权。
+
+设备码登录无需回调端口，适合远程 DSH。账号可能需要在 ChatGPT 的安全设置中启用设备码授权。网页登录的 SDK 使用 `http://localhost:1455/auth/callback` 回调；浏览器与 DSH 不在同一机器时，在浏览器所在电脑建立转发并保持运行：
+
+```sh
+ssh -N -L 1455:127.0.0.1:1455 user@your-dsh-server
+```
+
+服务器仍须能访问 OpenAI 认证接口。HTTP 403 表示接口拒绝了请求；改用 SDK、打开网页或转发回调端口都不会自动解决出站访问问题。插件只返回脱敏的错误类别，不显示 SDK 原始响应或凭据。具体网络出口、访问权限和模型授权需要在部署环境中验证。
+
+本地模型页的 **Codex Bridge** 提供商卡片也保留登录入口，位于「添加模型提供商」上方。公网模型页在原版 DSH 中可能显示 `settings are unavailable in this browser`，独立的 **Codex 登录** 页通过公开 `settings.section` 扩展直接使用 Connection RPC，不读取宿主 Settings 文档，因此仍可使用。插件不修改 DSH 本体。
+
+`/codex-login` 启动网页登录，在设置中的 **Codex 登录** 页打开授权入口；`/codex-login status` 查看状态，`/codex-login cancel` 取消授权。命令输出与会话日志不包含授权 URL、一次性设备码、SDK 原始错误或登录令牌。
+
+## 凭据与升级
+
+默认凭据为 `$DSH_HOME/plugins/dsh-codex-bridge/codex/auth.json`，未设置 `DSH_HOME` 时使用 `~/.dsh`。插件拒绝将凭据写入本机 `.codex` 或环境变量 `CODEX_HOME` 指定的目录。新登录保存插件标记的版本 1 OAuth 文件，父目录权限为 `0700`，文件为 `0600`，通过临时文件和原子替换提交。保存与刷新使用文件锁，避免并发请求重复使用已轮换的刷新令牌。
+
+模型请求发现插件凭据过期时，通过 SDK 刷新并保存新凭据；设置状态查询只读取文件，不发起续期。续期失败保留原文件，返回 `CODEX_AUTH_REFRESH_FAILED`，检查网络或重新登录。令牌、刷新令牌和完整授权 URL 不进入设置状态 JSON 或 DSH 日志。网页登录通过已认证的 `/api/codex-bridge/login/open` 跳转，响应使用 `no-store` 和 `no-referrer`，链接仅在当前授权等待期间有效。
+
+从 `0.1.10` 或更早版本升级到 `0.1.11` 后，不再需要 CLI。原插件专用目录中的旧 CLI 登录缓存，在 access token 有效时可继续读取；插件不自动迁移或刷新其中的 refresh token，过期后请重新授权。新格式由插件管理，旧插件不支持读取；回退旧版本时需要重新使用旧版登录。旧配置中的 `codexCommand`、`cliDetectionTimeoutMs` 和 `loginKillTimeoutMs` 已无作用，可移除；`authFile` 保持兼容。
+
+认证、续期与模型请求均使用宿主 pi-ai。从 0.1.13 开始，插件不再补充 GPT-6.1 Sol 或其他模型元数据，目录完全跟随宿主；已有 `models` 配置必须引用宿主目录中的模型，否则加载时会报错。可将 `models` 清空以使用完整宿主目录。
+
+这是第三方对 Codex 订阅接口的兼容实现，复用 SDK 的 Codex OAuth 客户端。它与需要申请应用 client ID 的 [Sign in with ChatGPT 接入](https://developers.openai.com/siwc)不同。认证服务变化可能需要升级 SDK 或插件。
 
 ## 配置
 
-`cordis.patch.yml` 默认启用插件。可在 Profile 的插件配置中设置：
+`cordis.patch.yml` 通过 Bundle 默认启用插件；它是插件注册配置，不是 DSH 源码补丁。在 Profile 的插件配置中可设置：
 
 ```yaml
 - insert:
     - id: dsh-codex-bridge
-      name: dsh-codex-bridge
+      name: '@zengshushu/dsh-codex-bridge'
       config:
         provider: codex-bridge
         displayName: Codex Bridge
-        codexCommand: /path/to/codex
-        authFile: /Users/your-name/.dsh/plugins/dsh-codex-bridge/codex/auth.json
+        authFile: /path/to/plugin-private/auth.json
         models: [gpt-6-sol, gpt-6-luna]
-        streamIdleTimeoutMs: 120000
 ```
 
 | 字段 | 默认值 | 用途 |
 | --- | --- | --- |
-| `provider` | `codex-bridge` | 唯一提供方路由名；避免与已有插件重复 |
+| `provider` | `codex-bridge` | 唯一提供方路由名 |
 | `displayName` | `Codex Bridge` | 模型选择器与设置卡片名称 |
-| `authFile` | DSH 数据目录中的插件专用缓存 | 必须是绝对路径，文件名为 `auth.json`；父目录作为 CLI 的 `CODEX_HOME` |
-| `codexCommand` | `codex` | 登录用 CLI 可执行文件；默认从 PATH 查找，可指定绝对路径 |
-| `loginTimeoutMs` | `300000` | 等待任一登录方式的最长时间；修改实时作用于下一次登录，默认 5 分钟，设备码自身的 15 分钟有效期不延长插件期限 |
-| `loginKillTimeoutMs` | `2000` | 取消后强制终止 CLI 的等待时间 |
-| `models` | `[]` | 空数组表示 SDK 全目录；未知或重复模型在加载时失败 |
-| `baseURL` | `https://chatgpt.com/backend-api` | Codex 兼容接口地址；登录令牌会发送到该地址 |
+| `authFile` | DSH 数据目录中的插件专用缓存 | 必须是绝对路径，文件名为 `auth.json` |
+| `loginTimeoutMs` | `300000` | 两种登录方式的最长等待时间；下一次登录使用最新配置 |
+| `authRefreshTimeoutMs` | `30000` | 令牌续期网络请求超时 |
+| `models` | `[]` | 空数组使用 SDK 目录；未知或重复模型在加载时失败 |
+| `baseURL` | `https://chatgpt.com/backend-api` | Codex 兼容端点，登录令牌会发送到此地址 |
 | `streamIdleTimeoutMs` | `120000` | 流事件空闲超时 |
 | `maxRequestImageBytes` | `20971520` | 请求图片的 base64 总字节上限 |
 | `requestImagePixelBudget` | `16000000` | 请求图片总像素预算 |
 | `requestImageMaxBytes` | `4194304` | DSH 图片处理的目标字节数 |
 
-Codex 订阅接口不能执行 `temperature`、`maxTokens` 或 `stop` 设置，插件遇到这些选项会返回 `UNSUPPORTED_OPTION`。输出模型、思考级别在 DSH 中选择；远端工具请求交给 DSH 执行。
-
-服务端 HTTP 错误沿用 DSH pi-ai 适配器的 `PI_AI_ERROR`，包含 SDK 返回的错误说明；SDK 内部重试已关闭。流空闲超时由 DSH 适配器处理。
-
-## 登录与兼容范围
-
-CLI 负责将浏览器授权结果写入插件专用 `auth.json`。模型请求只读取其中的 ChatGPT access token，不读取或刷新 refresh token，不接受 API Key 缓存。当前版本没有后台续期；令牌过期时返回 `CODEX_AUTH_EXPIRED`，在设置卡片选择任一登录方式或执行 `/codex-login` 重新授权。文件缺失、不可读或格式不合法时返回明确的认证错误，CLI 原始输出、OAuth 授权 URL、设备码和凭据内容不进入 DSH 会话日志。
-
-从本地 `0.1.0` 升级到 `0.1.1` 后，需要执行一次 `/codex-login`。默认认证目录已改为插件专用目录，旧版使用的本机登录不会自动迁移。请移除指向本机 `.codex/auth.json` 的旧 `authFile` 配置；登录入口会拒绝本机 Codex 目录。
-
-设置中的 **网页登录** 由服务端 CLI 打开服务所在机器的浏览器，适用于本地 Web 服务；远程访问需要处理 CLI 的 localhost 回调。**设备码登录** 可以在访问设置的浏览器打开 OpenAI 认证页面，无需端口转发；若账号未启用设备码授权，需要先在 ChatGPT 安全设置中启用。界面通过模型提供商卡片扩展挂载，使用既有按钮和主题变量；字典支持中文与英文。Host 只向已通过 Connection 认证的浏览器返回凭据是否有效、登录进度、脱敏错误，以及等待期间的设备码和固定 OpenAI 认证页面。设备码只保留在当前登录进程的内存中，完成、取消、失败或卸载后清除；不返回令牌、CLI 输出或 OAuth 授权链接。
-
-没有加载 DSH 人机命令服务的 Profile，可手动使用相同的独立目录登录：
-
-```sh
-mkdir -p "$HOME/.dsh/plugins/dsh-codex-bridge/codex"
-CODEX_HOME="$HOME/.dsh/plugins/dsh-codex-bridge/codex" codex login \
-  -c 'cli_auth_credentials_store="file"' -c 'forced_login_method="chatgpt"'
-```
-
-这是第三方对 Codex 订阅接口的兼容实现。OpenAI 的[第三方 Sign in with ChatGPT 接入](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations)使用另外的 OAuth 授权流程和 `api.openai.com/v1`；本插件没有实现该流程。服务端变更可能需要升级 SDK 或插件。
+Codex 订阅接口不支持 `temperature` 和 `maxTokens`，插件返回 `UNSUPPORTED_OPTION`。思考级别在 DSH 中选择，模型的工具调用交给 DSH 执行。服务端模型错误沿用 DSH 的 `PI_AI_ERROR`，流空闲超时和请求重试由 DSH 适配器处理。
 
 ## 开发与验收
 
 ```sh
+pnpm install
 pnpm typecheck
 pnpm test
-pnpm build
-CODEX_TEST_MODEL=gpt-6.1-sol pnpm test:live
+pnpm pack --pack-destination /tmp
+CODEX_TEST_MODEL=gpt-6-sol pnpm test:live
 ```
 
-单元与本地 HTTP/SSE 测试不需要真实凭据，覆盖设置卡片的本地状态快照、RPC 校验和脱敏、独立 CLI 登录、环境密钥隔离、重复登录、超时、取消与卸载，以及认证错误、注册、请求归属信息、文本与用量、工具参数和加密记录重放。`test:live` 使用插件专用登录发送一条短测试消息，消耗该账号的 Codex 用量；可通过 `CODEX_TEST_MODEL` 选择模型、`CODEX_AUTH_FILE` 指定插件缓存路径。
+测试使用合成凭据与认证响应，覆盖实际 SDK 的 PKCE 网页回调、设备码授权、取消、超时、插件卸载、凭据保存、并发续期、旧缓存兼容、RPC 脱敏，以及中英登录状态快照和现有模型协议。测试不需要真实 ChatGPT 登录。`test:live` 使用插件专用凭据发送短消息，消耗账号用量；可通过 `CODEX_AUTH_FILE` 指定插件缓存。真实环境登录和模型权限需单独验收。
 
-仓库不包含凭据、DSH 用户数据、测试产物或构建目录；发布包包含编译后的 ESM 和类型声明。没有独立应用启动命令，使用 DSH Profile 加载插件。
+没有独立应用启动命令；通过 DSH Profile 加载插件。仓库不包含凭据、DSH 用户数据或构建产物。

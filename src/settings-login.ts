@@ -6,14 +6,14 @@ import { z } from 'zod'
 import { readCodexAccessToken } from './auth.js'
 import type { Config } from './config.js'
 import type { CodexLogin } from './login.js'
-import { LOGIN_ENDPOINTS, loginMethodSchema, loginPath, type LoginEndpoint, type LoginView } from './protocol.js'
+import { BROWSER_LOGIN_PATH, LOGIN_ENDPOINTS, loginMethodSchema, loginPath, type LoginEndpoint, type LoginView } from './protocol.js'
 
 const emptyPayload = z.strictObject({})
 const startPayload = z.strictObject({ method: loginMethodSchema })
 
 /** Read credential validity without disclosing or changing cached tokens.
  * @param config - Plugin-owned cache path.
- * @param login - Shared CLI process owner.
+ * @param login - Shared SDK authorization owner.
  * @returns Progress, temporary device challenge and cache validity.
  */
 export async function loginView(config: Config, login: CodexLogin): Promise<LoginView> {
@@ -22,14 +22,26 @@ export async function loginView(config: Config, login: CodexLogin): Promise<Logi
     credential = error instanceof LlmError && error.code === 'CODEX_AUTH_MISSING' ? 'missing'
       : error instanceof LlmError && error.code === 'CODEX_AUTH_EXPIRED' ? 'expired' : 'invalid'
   }
-  return { authenticated: credential === 'valid', credential, phase: login.status, ...login.device ? { device: login.device } : {}, ...login.failureKind ? { failure: login.failureKind } : {} }
+  return { authenticated: credential === 'valid', credential, phase: login.status, ...login.device ? { device: login.device } : {}, ...login.browserURL ? { browser: true } : {}, ...login.failureKind ? { failure: login.failureKind } : {} }
+}
+
+/** Open the pending authorization URL after Connection authenticates navigation.
+ * @param login - Owner of the currently pending browser login.
+ * @returns No-store redirect, or conflict when that attempt has settled.
+ */
+export function browserLoginRedirect(login: CodexLogin): Response {
+  const url = login.browserURL
+  return new Response(null, {
+    status: url ? 302 : 409,
+    headers: { 'cache-control': 'no-store', 'referrer-policy': 'no-referrer', ...url ? { location: url } : {} },
+  })
 }
 
 /** Handle one authenticated Fetch request with Connection's RPC envelope.
  * @param request - Request admitted by Connection's shared `/api` bridge.
  * @param endpoint - Exact action selected by its registered route.
  * @param config - Plugin-owned cache and login settings.
- * @param login - Shared CLI process owner.
+ * @param login - Shared SDK authorization owner.
  * @returns Correlated response containing only safe state or a generic failure.
  */
 export async function handleLoginRequest(request: Request, endpoint: LoginEndpoint, config: Config, login: CodexLogin): Promise<Response> {
@@ -58,9 +70,10 @@ export async function handleLoginRequest(request: Request, endpoint: LoginEndpoi
 /** Register exact routes behind Connection's existing authentication checks.
  * @param ctx - Child context with Connection available.
  * @param config - Plugin-owned settings.
- * @param login - Shared CLI process owner.
+ * @param login - Shared SDK authorization owner.
  */
 export function registerSettingsLogin(ctx: Context, config: Config, login: CodexLogin): void {
+  ctx.connection.fetch.register({ path: BROWSER_LOGIN_PATH, methods: ['GET'], requestBody: 'buffered', fetch: async () => browserLoginRedirect(login) })
   for (const endpoint of LOGIN_ENDPOINTS) ctx.connection.fetch.register({
     path: loginPath(endpoint), methods: ['POST'], requestBody: 'buffered',
     fetch: request => handleLoginRequest(request, endpoint, config, login),

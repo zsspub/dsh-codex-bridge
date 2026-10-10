@@ -1,10 +1,11 @@
-import { describe, expect, it } from 'vitest'
+vi.mock('../src/oauth.js', async () => { const { sdk } = await import('./sdk-mock.js'); return { codexOAuth: () => sdk } })
+import { describe, expect, it, vi } from 'vitest'
 import { writeFile } from 'node:fs/promises'
 import { CodexLogin } from '../src/login.js'
-import { handleLoginRequest, loginView } from '../src/settings-login.js'
+import { browserLoginRedirect, handleLoginRequest, loginView } from '../src/settings-login.js'
 import type { LoginEndpoint } from '../src/protocol.js'
 import { authFixture, config, fakeToken } from './helpers.js'
-import { cliFixture } from './cli-fixture.js'
+import { sdkFixture } from './sdk-fixture.js'
 
 function request(endpoint: LoginEndpoint, payload: object = endpoint === 'login/start' ? { method: 'browser' } : {}, method = `codex-bridge/${endpoint}`): Request {
   return new Request(`http://localhost/api/codex-bridge/${endpoint}`, {
@@ -14,6 +15,40 @@ function request(endpoint: LoginEndpoint, payload: object = endpoint === 'login/
 }
 
 describe('Settings login actions', () => {
+  it('opens a pending browser login through a no-store redirect without exposing the OAuth URL in status JSON', async () => {
+    const fixture = await sdkFixture('wait')
+    const settings = config({ authFile: fixture.authFile })
+    try {
+      expect(browserLoginRedirect(fixture.login).status).toBe(409)
+      await fixture.login.start('browser')
+      const response = await handleLoginRequest(request('status'), 'status', settings, fixture.login)
+      const text = await response.text()
+      expect(JSON.parse(text).result.value.browser).toBe(true)
+      expect(text).not.toContain('private-test-state')
+      expect(text).not.toContain('oauth/authorize')
+      const redirect = browserLoginRedirect(fixture.login)
+      expect(redirect.status).toBe(302)
+      expect(redirect.headers.get('location')).toBe('https://auth.openai.com/oauth/authorize?state=private-test-state')
+      expect(redirect.headers.get('cache-control')).toBe('no-store')
+      expect(redirect.headers.get('referrer-policy')).toBe('no-referrer')
+      await fixture.login.cancel()
+      expect(fixture.login.browserURL).toBeUndefined()
+      expect(browserLoginRedirect(fixture.login).status).toBe(409)
+      await fixture.login.start('device')
+      expect(browserLoginRedirect(fixture.login).status).toBe(409)
+    } finally { await fixture.cleanup() }
+  })
+  it('returns a redacted forbidden category for a failed device authorization request', async () => {
+    const fixture = await sdkFixture('forbidden')
+    const settings = config({ authFile: fixture.authFile })
+    try {
+      const response = await handleLoginRequest(request('login/start', { method: 'device' }), 'login/start', settings, fixture.login)
+      const text = await response.text()
+      expect(JSON.parse(text).result.error.code).toBe('CODEX_LOGIN_FORBIDDEN')
+      expect(text).not.toContain('private-sdk-output-secret')
+      expect((await loginView(settings, fixture.login)).failure).toBe('forbidden')
+    } finally { await fixture.cleanup() }
+  })
   it('returns only validity for the independent cache and distinguishes expiry', async () => {
     const fixture = await authFixture()
     const settings = config({ authFile: fixture.path })
@@ -27,12 +62,12 @@ describe('Settings login actions', () => {
     } finally { await login.dispose(); await fixture.cleanup() }
   })
 
-  it('starts the shared CLI owner, reports progress, drains cancellation and allows retry', async () => {
-    const fixture = await cliFixture('wait')
+  it('starts the shared SDK owner, reports progress, drains cancellation and allows retry', async () => {
+    const fixture = await sdkFixture('wait')
     const settings = config({ authFile: fixture.authFile })
     try {
       const started = await (await handleLoginRequest(request('login/start'), 'login/start', settings, fixture.login)).json()
-      expect(started).toEqual({ type: 'server-response', rpcId: 'test-id', result: { ok: true, value: { authenticated: false, credential: 'missing', phase: 'waiting' } } })
+      expect(started).toEqual({ type: 'server-response', rpcId: 'test-id', result: { ok: true, value: { authenticated: false, credential: 'missing', phase: 'waiting', browser: true } } })
       const busy = await (await handleLoginRequest(request('login/start'), 'login/start', settings, fixture.login)).json()
       expect(busy.result.error.code).toBe('CODEX_LOGIN_BUSY')
       const cancelled = await (await handleLoginRequest(request('login/cancel'), 'login/cancel', settings, fixture.login)).json()
@@ -42,8 +77,8 @@ describe('Settings login actions', () => {
     } finally { await fixture.cleanup() }
   })
 
-  it('observes completed authorization without returning any CLI output or tokens', async () => {
-    const fixture = await cliFixture()
+  it('observes completed authorization without returning any SDK output or tokens', async () => {
+    const fixture = await sdkFixture()
     const settings = config({ authFile: fixture.authFile })
     try {
       await handleLoginRequest(request('login/start'), 'login/start', settings, fixture.login)
@@ -58,7 +93,7 @@ describe('Settings login actions', () => {
   })
 
   it('rejects malformed envelopes, mismatched actions and nonempty action payloads', async () => {
-    const fixture = await cliFixture()
+    const fixture = await sdkFixture()
     const settings = config({ authFile: fixture.authFile })
     try {
       for (const input of [request('status', { authFile: '/another/account' }), request('status', {}, 'codex-bridge/login/start'),
@@ -71,7 +106,7 @@ describe('Settings login actions', () => {
   })
 
   it('publishes device instructions only while that attempt is waiting and validates its selected method', async () => {
-    const fixture = await cliFixture('wait')
+    const fixture = await sdkFixture('wait')
     const settings = config({ authFile: fixture.authFile })
     try {
       for (const payload of [{}, { method: 'unknown' }, { method: 'device', authFile: '/elsewhere' }]) {
@@ -85,18 +120,14 @@ describe('Settings login actions', () => {
     } finally { await fixture.cleanup() }
   })
 
-  it('reports failed executable and child failure as recovery categories', async () => {
-    const fixture = await cliFixture('refuse')
-    const settings = config({ authFile: fixture.authFile })
-    const missing = new CodexLogin(config({ authFile: fixture.authFile, codexCommand: fixture.directory + '/absent' }))
+  it('reports SDK failure without disclosing diagnostic bytes', async () => {
+    const fixture = await sdkFixture('refuse')
     try {
-      const response = await handleLoginRequest(request('login/start'), 'login/start', settings, fixture.login)
+      const response = await handleLoginRequest(request('login/start'), 'login/start', config({ authFile: fixture.authFile }), fixture.login)
       const text = await response.text()
-      expect(text).not.toContain('private-cli-output-secret')
+      expect(text).not.toContain('private-sdk-output-secret')
       expect(JSON.parse(text).result.error.code).toBe('CODEX_LOGIN_FAILED')
-      expect((await loginView(settings, fixture.login)).failure).toBe('failed')
-      await handleLoginRequest(request('login/start'), 'login/start', settings, missing)
-      expect((await loginView(settings, missing)).failure).toBe('executable')
-    } finally { await missing.dispose(); await fixture.cleanup() }
+      expect(fixture.login.failureKind).toBe('failed')
+    } finally { await fixture.cleanup() }
   })
 })

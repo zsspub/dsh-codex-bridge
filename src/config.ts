@@ -1,4 +1,4 @@
-/** Plugin-owned CLI authentication, provider identity and request limits. */
+/** Plugin-owned SDK authentication, provider identity and request limits. */
 import schema from '@deepseek-ai/schemastery'
 import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
 
@@ -8,14 +8,12 @@ export interface Config {
   provider: string
   /** Provider name displayed in the model selector and Settings card. */
   displayName: string
-  /** Plugin-owned auth.json; its parent is passed to the CLI as CODEX_HOME. */
+  /** Plugin-owned auth.json; never shared with the machine's Codex login. */
   authFile: string
-  /** Codex CLI executable, resolved through PATH unless an absolute path is supplied. */
-  codexCommand: string
   /** Maximum duration of either login flow. */
   loginTimeoutMs: number
-  /** Grace period before forcibly terminating a cancelled CLI process. */
-  loginKillTimeoutMs: number
+  /** Deadline for SDK token refresh requests. */
+  authRefreshTimeoutMs: number
   /** Native Codex model IDs to advertise; an empty array selects the SDK catalog. */
   models: string[]
   /** Optional Codex-compatible endpoint; credentials are sent to this endpoint. */
@@ -42,9 +40,8 @@ export const configFields = {
   provider: schema.string().default('codex-bridge'),
   displayName: schema.string().default('Codex Bridge'),
   authFile: schema.string().default(defaultAuthFile()),
-  codexCommand: schema.string().default('codex'),
   loginTimeoutMs: schema.number().step(1).min(1).max(2_147_483_647).default(300_000),
-  loginKillTimeoutMs: schema.number().step(1).min(1).max(2_147_483_647).default(2_000),
+  authRefreshTimeoutMs: schema.number().step(1).min(1).max(2_147_483_647).default(30_000),
   models: schema.array(schema.string()).default([]),
   baseURL: schema.string().default('https://chatgpt.com/backend-api'),
   streamIdleTimeoutMs: schema.number().min(1).max(2_147_483_647).default(120_000),

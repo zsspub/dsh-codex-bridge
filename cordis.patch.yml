@@ -1,4 +1,4 @@
 - insert:
     - id: dsh-codex-bridge
-      name: dsh-codex-bridge
+      name: '@zengshushu/dsh-codex-bridge'
       config: {}

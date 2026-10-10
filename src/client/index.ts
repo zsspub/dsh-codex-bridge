@@ -1,10 +1,12 @@
-/** Third-party Codex login card in the existing Models settings section. */
+/** Standalone Codex login and the existing Models provider-card contribution. */
 import type { Context } from '@deepseek-ai/cordis'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings-models/client'
 import { LoginCard } from './LoginCard.js'
+import { LoginSection } from './LoginSection.js'
 import { createLoginApi } from './api.js'
 import { en, zh, type LoginKey } from './locales.js'
 import { SETTINGS_NAMESPACE } from '../protocol.js'
@@ -16,7 +18,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 /** Services required by the browser card. */
 export const inject = ['slots', 'locale', 'connection']
 
-/** Install dictionaries, scoped styles and login within the provider card.
+/** Install dictionaries, styles, a standalone login page and provider-card login.
  * @param ctx - Browser plugin context; withdrawals follow its fiber.
  */
 export function apply(ctx: Context): void {
@@ -29,6 +31,11 @@ export function apply(ctx: Context): void {
   }, 'codex login styles')
   const connection = ctx.get('connection') as ConnectionHandle
   const api = createLoginApi(connection.rpc)
+  ctx.slots.inject('settings.section', () => ctx.slots.register({
+    name: 'settings.section', id: 'codex-login', order: 15,
+    label: () => ctx.locale.bind('codex-bridge.login')('nav'),
+    locale: 'codex-bridge.login', inject: () => ({ api, remote: !connection.isLoopback }),
+  }, LoginSection))
   ctx.slots.inject('settings.models.provider-card', () => ctx.slots.register({
     name: 'settings.models.provider-card', key: SETTINGS_NAMESPACE,
     locale: 'codex-bridge.login', inject: () => ({ api }),
