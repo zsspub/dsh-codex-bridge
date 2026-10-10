@@ -21,6 +21,15 @@ pnpm dsh plugin --profile web add /tmp/dsh-codex-bridge-0.1.5.tgz
 pnpm run start:web --no-open
 ```
 
+也可以通过 `dsh plugin --profile web add github:zsspub/dsh-codex-bridge#<commit-sha>` 安装已审阅的提交。GitHub 源码包需要执行 `prepare` 编译 Host 和浏览器模块，安装前必须在目标 Profile 的 `pnpm-workspace.yaml` 中单独允许本插件构建。默认 Profile 路径为 `~/.dsh/profiles/web`；自定义 `DSH_HOME` 时使用 `$DSH_HOME/profiles/web`。pnpm 10 将插件加入已有的白名单，保留其他条目：
+
+```yaml
+onlyBuiltDependencies:
+  - dsh-codex-bridge
+```
+
+pnpm 11 使用 `allowBuilds`，将 `dsh-codex-bridge: true` 合入已有映射。只使用与当前 pnpm 版本对应的一种策略；不要与 `onlyBuiltDependencies` 混用。遇到 `ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED`，补齐此授权后重试安装即可，无需开启全局构建权限。
+
 启动后打开 **设置 → 模型 → Codex Bridge**。未登录时可选择 **网页登录** 或 **设备码登录**。网页登录由 CLI 打开浏览器；设备码登录会显示一次性验证码和 **打开认证页面** 入口，在该页面登录 ChatGPT 并输入设备码完成授权；卡片在等待期间自动更新，完成后显示 **已登录**。等待期间可取消；关闭设置不会中断登录，重新打开或点击 **刷新状态** 可读取最新状态。卡片只验证插件专用凭据的格式和有效期，不表示账号获得某个模型的使用权限。
 
 ### 登录卡片位置
@@ -37,6 +46,7 @@ pnpm 11 首次安装如果提示 `ERR_PNPM_IGNORED_BUILDS`，将以下脚本策�
 
 ```yaml
 allowBuilds:
+  dsh-codex-bridge: true
   esbuild: true
   '@google/genai': false
   protobufjs: false
