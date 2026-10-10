@@ -32,6 +32,8 @@ pnpm 11 使用 `allowBuilds`，将 `dsh-codex-bridge: true` 合入已有映射�
 
 启动后打开 **设置 → 模型 → Codex Bridge**。未登录时可选择 **网页登录** 或 **设备码登录**。网页登录由 CLI 打开浏览器；设备码登录会显示一次性验证码和 **打开认证页面** 入口，在该页面登录 ChatGPT 并输入设备码完成授权；卡片在等待期间自动更新，完成后显示 **已登录**。等待期间可取消；关闭设置不会中断登录，重新打开或点击 **刷新状态** 可读取最新状态。卡片只验证插件专用凭据的格式和有效期，不表示账号获得某个模型的使用权限。
 
+原版 DSH `0.2.0-rc.2` 只在 loopback 页面加载宿主 Settings 配置；公网域名下的模型页可能显示 `settings are unavailable in this browser`。远程服务请通过 SSH 转发 Web 端口，并在浏览器访问 `http://127.0.0.1:<转发端口>/`，完成 DSH 页面认证后使用设置卡片。设备码授权本身无需转发 CLI 的 `1455` 回调端口。插件沿用宿主设置行为，不修改 DSH 本体。
+
 ### 登录卡片位置
 
 插件向 LLM 服务注册可配置提供商。登录等待超时声明为可热更新配置，宿主从 Bundle entry id 生成 Settings namespace `dsh-codex-bridge`。客户端以此 namespace 为 key，将登录面板挂到公开的 `settings.models.provider-card` 扩展位。原版 DSH 在提供商列表内渲染这张卡片，因此它位于「添加模型提供商」上方；安装无需修改 DSH 源码或应用补丁。卡片标题与外框由宿主提供，登录状态和操作由插件提供。Bundle 的插件 entry id 必须保持 `dsh-codex-bridge`，以对应 Settings namespace。
