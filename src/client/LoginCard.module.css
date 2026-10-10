@@ -1,0 +1,21 @@
+.card {
+  border: 0.5px solid var(--dsw-alias-settings-card-stroke);
+  background: var(--dsw-alias-settings-card-fill);
+  border-radius: var(--dsw-radius-xl);
+  padding: 12px 14px;
+  color: var(--dsw-alias-label-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.title, .heading { margin: 0; font-size: 14px; line-height: 22px; font-weight: 500; }
+.title { padding-bottom: 12px; border-bottom: 0.5px solid var(--dsw-alias-border-l3); }
+.head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.description, .detail { margin: 0; font-size: 13px; line-height: 20px; color: var(--dsw-alias-label-secondary); }
+.badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; line-height: 18px; padding: 2px 8px; border-radius: var(--dsw-radius-xs); background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-secondary); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.notice { min-height: 20px; font-size: 13px; line-height: 20px; color: var(--dsw-alias-state-error-primary); }
+.loading { display: flex; justify-content: center; min-height: 36px; }
+.device { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.code { font-family: monospace; font-size: 18px; line-height: 26px; letter-spacing: 2px; padding: 6px 10px; border-radius: var(--dsw-radius-xs); background: var(--dsw-alias-interactive-bg-hover); user-select: all; overflow-wrap: anywhere; }
+.link { font-size: 13px; line-height: 20px; color: var(--dsw-alias-label-primary); text-decoration: underline; }

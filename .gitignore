@@ -1,0 +1,9 @@
+node_modules/
+lib/
+coverage/
+*.tgz
+.env
+.env.*
+.dsh/
+auth.json
+artifacts/
