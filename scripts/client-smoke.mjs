@@ -30,7 +30,6 @@ for (const isLoopback of [true, false]) {
       effect: callback => { disposers.push(callback()) },
       locale: {
         register: (_ns, value) => { dictionaries = value; return () => {} },
-        bind: () => key => dictionaries.zh[key],
       },
       get: name => {
         assert.equal(name, 'connection', 'Login must not request host Settings services')
@@ -38,7 +37,10 @@ for (const isLoopback of [true, false]) {
       },
       slots: {
         // The remote Models page may never render or publish its card seat.
-        inject: (name, callback) => { if (name === 'settings.section' || isLoopback) callback() },
+        inject: (name, callback) => {
+          assert.equal(name, 'settings.models.provider-card')
+          if (isLoopback) callback()
+        },
         register: (options, component) => {
           if (options.name === 'settings.section') section = { options, component }
           else card = { options, component }
@@ -46,14 +48,7 @@ for (const isLoopback of [true, false]) {
         },
       },
     })
-    assert.equal(section.options.id, 'codex-login')
-    assert.equal(section.options.label(), 'Codex 登录')
-    assert.equal(section.options.inject().remote, !isLoopback)
-    const page = renderToStaticMarkup(createElement(section.component, { ...section.options.inject(), t: key => dictionaries.zh[key] }))
-    assert.ok(page.includes('data-codex-login-section'))
-    assert.ok(page.includes('data-codex-login-card'))
-    assert.ok(page.includes('<h2'))
-    assert.equal(page.includes(dictionaries.zh.remoteHint), !isLoopback)
+    assert.equal(section, undefined, 'Login must not add a separate Settings tab')
     if (isLoopback) {
       assert.equal(card.options.name, 'settings.models.provider-card')
       assert.equal(card.options.key, 'dsh-codex-bridge')
@@ -61,7 +56,7 @@ for (const isLoopback of [true, false]) {
       assert.ok(!html.includes('<h3'), 'Provider header belongs to the host row')
       assert.ok(html.includes('data-codex-login-card'))
     } else assert.equal(card, undefined)
-    console.log(JSON.stringify({ ok: true, shipped_bundle_rendered: true, standalone_login: true, isLoopback }))
+    console.log(JSON.stringify({ ok: true, shipped_bundle_rendered: true, standalone_login: false, isLoopback }))
   } finally {
     for (const dispose of disposers.reverse()) dispose()
   }

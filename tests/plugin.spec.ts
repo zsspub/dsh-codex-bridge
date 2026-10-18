@@ -27,12 +27,12 @@ describe('Cordis model registration', () => {
     const request = async (endpoint: 'login/start' | 'login/cancel') => (await shared.fetch(new Request(`http://localhost/api/codex-bridge/${endpoint}`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ type: 'client-request', rpcId: 'live-timeout', method: `codex-bridge/${endpoint}`, payload: endpoint === 'login/start' ? { method: 'browser' } : {} }),
-    }))).json()
+    }), ctx.connection.browserPeer)).json()
     try {
       expect((await request('login/start')).result.value.phase).toBe('waiting')
-      expect((await shared.fetch(new Request('http://localhost' + BROWSER_LOGIN_PATH))).status).toBe(302)
+      expect((await shared.fetch(new Request('http://localhost' + BROWSER_LOGIN_PATH), ctx.connection.browserPeer)).status).toBe(302)
       await request('login/cancel')
-      expect((await shared.fetch(new Request('http://localhost' + BROWSER_LOGIN_PATH))).status).toBe(409)
+      expect((await shared.fetch(new Request('http://localhost' + BROWSER_LOGIN_PATH), ctx.connection.browserPeer)).status).toBe(409)
       timeoutMs = 1
       expect(fiber.uid).toBe(uid)
       expect((await request('login/start')).result.error.code).toBe('CODEX_LOGIN_TIMEOUT')
@@ -53,10 +53,10 @@ describe('Cordis model registration', () => {
       body: JSON.stringify({ type: 'client-request', rpcId: 'settings-test', method: 'codex-bridge/status', payload: {} }),
     })
     try {
-      expect((await (await shared.fetch(request())).json()).result.value.authenticated).toBe(true)
+      expect((await (await shared.fetch(request(), ctx.connection.browserPeer)).json()).result.value.authenticated).toBe(true)
       await fiber.dispose()
-      expect((await shared.fetch(request())).status).toBe(404)
-      expect((await shared.fetch(new Request('http://localhost' + BROWSER_LOGIN_PATH))).status).toBe(404)
+      expect((await shared.fetch(request(), ctx.connection.browserPeer)).status).toBe(404)
+      expect((await shared.fetch(new Request('http://localhost' + BROWSER_LOGIN_PATH), ctx.connection.browserPeer)).status).toBe(404)
     } finally { await fiber.dispose(); await connection.dispose(); await runtime.dispose(); await fixture.cleanup() }
   })
 

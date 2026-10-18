@@ -1,6 +1,6 @@
 # @zengshushu/dsh-codex-bridge
 
-第三方 DeepSeek Harness 模型插件，兼容 **DSH `0.2.0-rc.2`**。通过 SDK 直接完成 ChatGPT 网页登录或设备码登录，以 `codex-bridge` 提供方调用 Codex 模型。**无需安装 Codex CLI**。插件使用自己的凭据目录，不继承本机 Codex 登录；DSH 负责会话、工具执行、日志和恢复。模型适配复用公开的 `PiAiAdapter` 与 `@earendil-works/pi-ai` Codex 协议实现。
+第三方 DeepSeek Harness 模型插件，兼容 **DSH `0.2.1-rc.2`**。通过 SDK 直接完成 ChatGPT 网页登录或设备码登录，以 `codex-bridge` 提供方调用 Codex 模型。**无需安装 Codex CLI**。插件使用自己的凭据目录，不继承本机 Codex 登录；DSH 负责会话、工具执行、日志和恢复。模型适配复用公开的 `PiAiAdapter` 与 `@earendil-works/pi-ai` Codex 协议实现。
 
 支持流式文本、思考级别、工具调用、工具结果续接、加密思考记录重放、用量统计、取消和 DSH 持久化图片输入。模型目录完全跟随宿主 pi-ai 的 Codex 目录；目录不表示账号获得模型权限，实际请求才能确认。
 
@@ -9,31 +9,39 @@
 需要 Node `^22.19.0 || >=24.0.0`。公网 npm 包包含预编译服务端 ESM、浏览器模块和类型声明，安装时无需构建插件；pnpm 仍会安装运行时依赖。使用 DSH 官方插件管理命令安装：
 
 ```sh
-dsh plugin --profile web add @zengshushu/dsh-codex-bridge@0.1.13
+dsh plugin --profile web add @zengshushu/dsh-codex-bridge@0.1.15
 ```
 
 也可在 DSH 插件市场选择本地压缩包，或通过命令安装 tgz：
 
 ```sh
-dsh plugin --profile web add /path/to/zengshushu-dsh-codex-bridge-0.1.13.tgz
+dsh plugin --profile web add /path/to/zengshushu-dsh-codex-bridge-0.1.15.tgz
 ```
+
+macOS 桌面应用使用 `desktop` Profile。通过应用自带的 CLI 安装本地包：
+
+```sh
+"/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh" plugin --profile desktop add /path/to/zengshushu-dsh-codex-bridge-0.1.15.tgz
+```
+
+安装完成后退出并重新打开 DeepSeek Harness，在 **设置 → 模型 → Codex Bridge** 检查登录状态。桌面应用自带运行时和包管理器，无需另行安装 CLI。
 
 从 DSH 源码运行时使用 `pnpm dsh plugin --profile web add ...`。升级后重启 DSH，再刷新浏览器；systemd 部署可执行 `systemctl restart deepseek-harness.service`。插件不会自动改动 DSH 的源码、默认模型或安装其他程序。
 
-从 0.1.12 开始，插件通过 peer dependency 复用宿主的 `@earendil-works/pi-ai@0.87.1`，不安装另一套 SDK 或模型目录包。DSH `0.2.0-rc.2` 的 `dsh-llm-pi-ai` 提供该版本；宿主 Profile 必须能解析这项依赖。兼容范围锁定实际测试版本，其他版本需重新验证。
+从 0.1.14 开始，插件适配 DSH `0.2.1-rc.2`，通过 peer dependency 复用宿主的 `@earendil-works/pi-ai@1.1.0`，不安装另一套 SDK 或模型目录包。DSH `0.2.1-rc.2` 的 `dsh-llm-pi-ai` 提供该版本；宿主 Profile 必须能解析这项依赖。兼容范围锁定实际测试版本，其他版本需重新验证。
 
 预编译 npm 包和 tgz 不要求为插件增加构建授权。若安装器仍报告 `@google/genai` 或 `protobufjs` 的构建脚本被拦截，需要按错误明细检查宿主已有依赖的 pnpm 策略；本版本不再直接或通过目录别名引入新的 pi-ai 依赖树。GitHub 源码安装会执行 `prepare`，仍需要授权 `@zengshushu/dsh-codex-bridge` 构建；开发环境还需要运行 esbuild 的安装脚本。日常安装优先使用 npm 包。
 
-从无 scope 的旧包迁移时，先卸载 `dsh-codex-bridge`，再安装 `@zengshushu/dsh-codex-bridge`，避免同时注册相同的提供商和设置页。插件 entry id 与凭据目录仍为 `dsh-codex-bridge`，原插件专用凭据可继续读取：
+从无 scope 的旧包迁移时，先卸载 `dsh-codex-bridge`，再安装 `@zengshushu/dsh-codex-bridge`，避免同时注册相同的提供商和登录卡片。插件 entry id 与凭据目录仍为 `dsh-codex-bridge`，原插件专用凭据可继续读取：
 
 ```sh
 dsh plugin --profile web remove dsh-codex-bridge
-dsh plugin --profile web add @zengshushu/dsh-codex-bridge@0.1.13
+dsh plugin --profile web add @zengshushu/dsh-codex-bridge@0.1.15
 ```
 
 ## 登录
 
-打开 **设置 → Codex 登录**，选择 **网页登录** 或 **设备码登录**。页面不再检测 CLI，不显示 CLI 安装提示。网页登录准备完成后，点击 **打开登录页面** 在新标签页完成授权；设备码登录会显示一次性验证码与 **打开认证页面**。等待期间自动刷新，可取消登录；关闭设置不会中断授权。
+打开 **设置 → 模型 → Codex Bridge**，选择 **网页登录** 或 **设备码登录**。页面不再检测 CLI，不显示 CLI 安装提示。网页登录准备完成后，点击 **打开登录页面** 在新标签页完成授权；设备码登录会显示一次性验证码与 **打开认证页面**。等待期间自动刷新，可取消登录；关闭设置不会中断授权。
 
 设备码登录无需回调端口，适合远程 DSH。账号可能需要在 ChatGPT 的安全设置中启用设备码授权。网页登录的 SDK 使用 `http://localhost:1455/auth/callback` 回调；浏览器与 DSH 不在同一机器时，在浏览器所在电脑建立转发并保持运行：
 
@@ -43,9 +51,9 @@ ssh -N -L 1455:127.0.0.1:1455 user@your-dsh-server
 
 服务器仍须能访问 OpenAI 认证接口。HTTP 403 表示接口拒绝了请求；改用 SDK、打开网页或转发回调端口都不会自动解决出站访问问题。插件只返回脱敏的错误类别，不显示 SDK 原始响应或凭据。具体网络出口、访问权限和模型授权需要在部署环境中验证。
 
-本地模型页的 **Codex Bridge** 提供商卡片也保留登录入口，位于「添加模型提供商」上方。公网模型页在原版 DSH 中可能显示 `settings are unavailable in this browser`，独立的 **Codex 登录** 页通过公开 `settings.section` 扩展直接使用 Connection RPC，不读取宿主 Settings 文档，因此仍可使用。插件不修改 DSH 本体。
+从 0.1.15 开始，登录入口统一放在模型页的 **Codex Bridge** 提供商卡片中，位于「添加模型提供商」上方，不再添加独立的设置 tab。公网模型页在原版 DSH 中可能显示 `settings are unavailable in this browser`，此时该登录卡片受宿主限制而不可用。插件不修改 DSH 本体。
 
-`/codex-login` 启动网页登录，在设置中的 **Codex 登录** 页打开授权入口；`/codex-login status` 查看状态，`/codex-login cancel` 取消授权。命令输出与会话日志不包含授权 URL、一次性设备码、SDK 原始错误或登录令牌。
+`/codex-login` 启动网页登录，在 **设置 → 模型 → Codex Bridge** 卡片中打开授权入口；`/codex-login status` 查看状态，`/codex-login cancel` 取消授权。命令输出与会话日志不包含授权 URL、一次性设备码、SDK 原始错误或登录令牌。
 
 ## 凭据与升级
 

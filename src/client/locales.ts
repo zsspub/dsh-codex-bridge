@@ -1,6 +1,5 @@
 /** Settings card copy owned by the plugin. */
 export const zh = {
-  nav: 'Codex 登录', remoteHint: '远程服务推荐设备码登录；网页登录需要转发服务端的 1455 回调端口',
   title: 'Codex Bridge', heading: '登录与连接',
   description: '使用 ChatGPT 账号登录，无需安装 Codex CLI',
   signedIn: '已登录', signedOut: '未登录', pending: '等待网页授权', expired: '登录已过期',
@@ -20,7 +19,6 @@ export const zh = {
 export type LoginKey = keyof typeof zh
 /** English copy for every Settings card key. */
 export const en: Record<LoginKey, string> = {
-  nav: 'Codex sign-in', remoteHint: 'Use device code sign-in for a remote service. Browser sign-in requires forwarding the server’s callback port 1455',
   title: 'Codex Bridge', heading: 'Sign in and connect',
   description: 'Sign in with ChatGPT. No Codex CLI installation required',
   signedIn: 'Signed in', signedOut: 'Not signed in', pending: 'Waiting for authorization', expired: 'Sign-in expired',

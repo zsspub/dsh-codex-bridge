@@ -1,6 +1,6 @@
 {
   "name": "@zengshushu/dsh-codex-bridge",
-  "version": "0.1.13",
+  "version": "0.1.15",
   "description": "Third-party Codex model provider for DeepSeek Harness with plugin-owned SDK browser and device code authentication",
   "type": "module",
   "main": "lib/index.js",
@@ -33,7 +33,6 @@
         "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-client-ui-primitives",
         "@deepseek-ai/dsh-client-ui-renderer",
-        "@deepseek-ai/dsh-client-ui-settings",
         "@deepseek-ai/dsh-client-ui-settings-models"
       ]
     }
@@ -61,22 +60,21 @@
     "zod": "4.4.3"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "~4.0.4",
-    "@deepseek-ai/dsh-attachment": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-client-connection": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-client-locale": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-client-ui-primitives": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-client-ui-renderer": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-client-ui-settings": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-client-ui-settings-models": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-client-ui-slots": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-commands": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-fs": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-home-paths": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-llm": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-llm-pi-ai": "0.2.0-rc.2",
-    "@deepseek-ai/schemastery": "~3.18.4",
-    "@earendil-works/pi-ai": "0.87.1"
+    "@deepseek-ai/cordis": "~4.0.5",
+    "@deepseek-ai/dsh-attachment": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-connection": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-locale": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-primitives": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-renderer": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-settings-models": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-commands": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-fs": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-home-paths": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-llm": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-llm-pi-ai": "0.2.1-rc.2",
+    "@deepseek-ai/schemastery": "~3.18.5",
+    "@earendil-works/pi-ai": "1.1.0"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/dsh-attachment": {
@@ -102,28 +100,24 @@
     },
     "@deepseek-ai/dsh-client-ui-slots": {
       "optional": true
-    },
-    "@deepseek-ai/dsh-client-ui-settings": {
-      "optional": true
     }
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "4.0.4",
-    "@deepseek-ai/dsh-agent": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-attachment": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-client-connection": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-client-locale": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-client-ui-primitives": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-client-ui-renderer": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-client-ui-settings": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-client-ui-settings-models": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-client-ui-slots": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-commands": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-fs": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-home-paths": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-llm": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-llm-pi-ai": "0.2.0-rc.2",
-    "@deepseek-ai/schemastery": "3.18.4",
+    "@deepseek-ai/cordis": "4.0.5",
+    "@deepseek-ai/dsh-agent": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-attachment": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-connection": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-locale": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-primitives": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-renderer": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-settings-models": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-commands": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-fs": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-home-paths": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-llm": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-llm-pi-ai": "0.2.1-rc.2",
+    "@deepseek-ai/schemastery": "3.18.5",
     "@types/node": "^24.3.0",
     "@types/proper-lockfile": "4.1.4",
     "@types/react": "~18.3.1",
@@ -133,7 +127,7 @@
     "react-dom": "^18.3.1",
     "typescript": "^6.0.3",
     "vitest": "^3.2.4",
-    "@earendil-works/pi-ai": "0.87.1"
+    "@earendil-works/pi-ai": "1.1.0"
   },
   "repository": {
     "type": "git",

@@ -33,7 +33,7 @@ export function registerLoginCommand(ctx: Context, config: Config, login: CodexL
         }
         if (input !== '') return { kind: 'error', text: '用法：/codex-login [status|cancel]' }
         await login.start()
-        return { kind: 'success', text: 'Codex 网页授权已启动，请在设置 → Codex 登录中打开登录页面。完成后运行 /codex-login status 查看结果。' }
+        return { kind: 'success', text: 'Codex 网页授权已启动，请在设置 → 模型 → Codex Bridge 中打开登录页面。完成后运行 /codex-login status 查看结果。' }
       } catch (error) {
         if (error instanceof LlmError) return { kind: 'error', text: error.message }
         throw error
