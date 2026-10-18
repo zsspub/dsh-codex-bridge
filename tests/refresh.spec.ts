@@ -1,7 +1,7 @@
 vi.mock('../src/oauth.js', async () => { const { sdk } = await import('./sdk-mock.js'); return { codexOAuth: () => sdk } })
 import { readFile, writeFile } from 'node:fs/promises'
 import { describe, expect, it, vi } from 'vitest'
-import { saveCodexCredential, resolveCodexAccessToken, readCodexAccessToken } from '../src/auth.js'
+import { rejectCodexAccessToken, saveCodexCredential, resolveCodexAccessToken, readCodexAccessToken } from '../src/auth.js'
 import { authFixture, fakeToken } from './helpers.js'
 import { credential, mockLogin } from './sdk-fixture.js'
 import lockfile from 'proper-lockfile'
@@ -52,6 +52,19 @@ describe('plugin credential renewal', () => {
       await saveCodexCredential(f.path, credential())
       expect(await readCodexAccessToken(f.path)).toBe(fakeToken())
       expect(sdk.refresh).not.toHaveBeenCalled()
+    } finally { await f.cleanup() }
+  })
+  it('renews a plugin-owned token rejected by the server even before its local expiry', async () => {
+    const f = await authFixture(); const sdk = mockLogin(); sdk.refresh.mockClear()
+    try {
+      await saveCodexCredential(f.path, credential())
+      rejectCodexAccessToken(f.path, fakeToken())
+      await expect(readCodexAccessToken(f.path)).rejects.toMatchObject({ code: 'CODEX_AUTH_EXPIRED' })
+      const access = fakeToken(4_102_444_800, 'renewed-account')
+      sdk.refresh.mockResolvedValue({ ...credential(), access, refresh: 'rotated-refresh' })
+      expect(await resolveCodexAccessToken(f.path, undefined, 2000)).toBe(access)
+      expect(sdk.refresh).toHaveBeenCalledOnce()
+      expect(await readCodexAccessToken(f.path)).toBe(access)
     } finally { await f.cleanup() }
   })
 })

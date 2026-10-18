@@ -1,6 +1,6 @@
 /** Plugin-owned OAuth storage with read-only compatibility for earlier CLI caches. */
 import { chmod, mkdir, open, realpath, rename, unlink } from 'node:fs/promises'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { homedir } from 'node:os'
 import { dirname, resolve } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -22,6 +22,19 @@ const tokenClaims = z.object({
   'https://api.openai.com/auth': z.object({ chatgpt_account_id: z.string().min(1) }),
 })
 const MAX_AUTH_FILE_BYTES = 1024 * 1024
+const rejectedTokens = new Map<string, string>()
+
+function tokenFingerprint(token: string): string {
+  return createHash('sha256').update(token).digest('hex')
+}
+
+/** Remember an upstream rejection without storing or changing credential bytes.
+ * @param authFile - Plugin credential location.
+ * @param token - Exact access token rejected by the model endpoint.
+ */
+export function rejectCodexAccessToken(authFile: string, token: string): void {
+  rejectedTokens.set(resolve(authFile), tokenFingerprint(token))
+}
 
 /** Read credential bytes with file-size checks and redacted parse failures. */
 async function readCache(authFile: string): Promise<unknown> {
@@ -61,7 +74,8 @@ export async function readCodexAccessToken(authFile: string): Promise<string> {
     const owned = ownedCache.safeParse(source)
     const token = owned.success ? owned.data.credential.access : loginCache.parse(source).tokens.access_token
     const expires = validateToken(token)
-    if (expires <= Date.now() || (owned.success && owned.data.credential.expires <= Date.now())) {
+    if (expires <= Date.now() || (owned.success && owned.data.credential.expires <= Date.now())
+        || rejectedTokens.get(resolve(authFile)) === tokenFingerprint(token)) {
       throw new LlmError('Codex 登录已过期，请重新授权。', 'CODEX_AUTH_EXPIRED')
     }
     return token
@@ -140,7 +154,7 @@ export async function saveCodexCredential(authFile: string, credential: OAuthCre
   await withCredentialLock(authFile, signal, ownership => { ownership.throwIfAborted(); return writeCredential(authFile, credential) })
 }
 
-/** Read request authentication and renew expired plugin-owned tokens under a file lock.
+/** Read request authentication and renew expired or rejected plugin-owned tokens under a file lock.
  * @param authFile - Plugin-owned file; earlier CLI caches are never refreshed.
  * @param signal - Model request cancellation.
  * @param timeoutMs - Maximum time allowed for token renewal.

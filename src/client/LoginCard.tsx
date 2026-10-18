@@ -2,7 +2,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Button, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Translate } from '@deepseek-ai/dsh-client-ui-slots'
-import { BROWSER_LOGIN_PATH, type LoginMethod, type LoginView } from '../protocol.js'
+import { type LoginMethod, type LoginView } from '../protocol.js'
 import { LoginActionError, type LoginApi } from './api.js'
 import type { LoginKey } from './locales.js'
 import styles from './LoginCard.module.css'
@@ -12,6 +12,7 @@ export interface LoginCardProps { api: LoginApi; t: Translate<LoginKey> }
 /** Snapshot and actions rendered by the Settings card. */
 export interface LoginPanelProps {
   t: Translate<LoginKey>; status?: LoginView; busy: boolean; problem?: LoginKey
+  browserURL?: string
   onLogin(method: LoginMethod): void; onCancel(): void; onRefresh(): void
 }
 
@@ -19,7 +20,7 @@ export interface LoginPanelProps {
  * @param props - Safe status, localized copy and actions.
  * @returns Card for signed-out, pending or signed-in users.
  */
-export function LoginPanel({ t, status, busy, problem, onLogin, onCancel, onRefresh }: LoginPanelProps): ReactNode {
+export function LoginPanel({ t, status, busy, problem, browserURL, onLogin, onCancel, onRefresh }: LoginPanelProps): ReactNode {
   const pending = status?.phase === 'waiting'
   const badge = pending ? status?.device ? 'devicePending' : 'pending' : status?.authenticated ? 'signedIn' : status?.credential === 'expired' ? 'expired' : 'signedOut'
   const detail = pending ? status?.device ? 'deviceWaiting' : 'waiting' : status?.authenticated ? 'connected' : status?.credential === 'invalid' ? 'invalid' : 'instruction'
@@ -36,11 +37,11 @@ export function LoginPanel({ t, status, busy, problem, onLogin, onCancel, onRefr
       <code className={styles.code}>{status.device.userCode}</code>
       <a className={styles.link} href={status.device.verificationURI} target="_blank" rel="noopener noreferrer">{t('openVerification')}</a>
     </div>}
-    {pending && status?.browser && <a className={styles.link} href={BROWSER_LOGIN_PATH} target="_blank" rel="noopener noreferrer">{t('openBrowserLogin')}</a>}
+    {pending && status?.browser && browserURL && <a className={styles.link} href={browserURL} target="_blank" rel="noopener noreferrer">{t('openBrowserLogin')}</a>}
     <div className={styles.notice} role={failure ? 'alert' : undefined}>{failure ? t(failure) : null}</div>
     <div className={styles.actions}>
-      {status && !status.authenticated && !pending && <>
-        <Button variant="primary" disabled={busy} onClick={() => onLogin('browser')}>{t('login')}</Button>
+      {status && !pending && <>
+        <Button variant={status.authenticated ? 'outline' : 'primary'} disabled={busy} onClick={() => onLogin('browser')}>{t(status.authenticated ? 'relogin' : 'login')}</Button>
         <Button variant="outline" disabled={busy} onClick={() => onLogin('device')}>{t('deviceLogin')}</Button>
       </>}
       {pending && <Button variant="outline" disabled={busy} onClick={onCancel}>{t('cancel')}</Button>}
@@ -56,6 +57,7 @@ export function LoginPanel({ t, status, busy, problem, onLogin, onCancel, onRefr
 export function LoginCard({ api, t }: LoginCardProps): ReactNode {
   const [status, setStatus] = useState<LoginView>()
   const [problem, setProblem] = useState<LoginKey>()
+  const [browserURL, setBrowserURL] = useState<string>()
   const [busy, setBusy] = useState(false)
   const [revision, setRevision] = useState(0)
   useEffect(() => {
@@ -68,8 +70,9 @@ export function LoginCard({ api, t }: LoginCardProps): ReactNode {
       if (timer) clearTimeout(timer)
       try {
         const next = await api.call('status', controller.signal)
+        const url = next.phase === 'waiting' && next.browser ? await api.browserURL(controller.signal) : undefined
         if (controller.signal.aborted) return
-        setStatus(next); setProblem(undefined)
+        setStatus(next); setBrowserURL(url); setProblem(undefined)
         if (next.phase === 'waiting') timer = setTimeout(() => { void refresh() }, 1000)
       } catch (_error) {
         if (!controller.signal.aborted) setProblem('queryFailure')
@@ -81,14 +84,14 @@ export function LoginCard({ api, t }: LoginCardProps): ReactNode {
     return () => { controller.abort(); if (timer) clearTimeout(timer); window.removeEventListener('focus', focus) }
   }, [api, revision])
   const act = async (method: LoginMethod | 'cancel'): Promise<void> => {
-    setBusy(true); setProblem(undefined)
+    setBusy(true); setProblem(undefined); setBrowserURL(undefined)
     try { setStatus(await (method === 'cancel' ? api.call('login/cancel') : api.start(method))); setRevision(value => value + 1) } catch (error) {
       setProblem(error instanceof LoginActionError && error.code === 'CODEX_LOGIN_FORBIDDEN' ? 'forbidden'
         : error instanceof LoginActionError && error.code === 'CODEX_LOGIN_TIMEOUT' ? 'timeout' : 'failed')
       setRevision(value => value + 1)
     } finally { setBusy(false) }
   }
-  return <LoginPanel t={t} status={status} busy={busy} problem={problem}
+  return <LoginPanel t={t} status={status} busy={busy} problem={problem} browserURL={browserURL}
     onLogin={method => { void act(method) }} onCancel={() => { void act('cancel') }}
     onRefresh={() => { setRevision(value => value + 1) }} />
 }

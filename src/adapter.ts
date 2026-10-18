@@ -4,7 +4,7 @@ import { openaiCodexProvider } from '@earendil-works/pi-ai/providers/openai-code
 import { PiAiAdapter, type PiAiAdapterOptions, type ResolvedPiAiProviderProfile } from '@deepseek-ai/dsh-llm-pi-ai'
 import { LlmError, attributionHeaders, resolveRetryPolicy, type GenerateOptions, type PreparedAdapterCall } from '@deepseek-ai/dsh-llm'
 import type { Config } from './config.js'
-import { resolveCodexAccessToken } from './auth.js'
+import { rejectCodexAccessToken, resolveCodexAccessToken } from './auth.js'
 
 /** Reject options the subscription endpoint cannot enforce. */
 function validateOptions(options: GenerateOptions): void {
@@ -68,11 +68,16 @@ export function createCodexAdapter(config: Config, hooks: HostHooks = {}): PiAiA
     getModels: () => models,
     streamSimple: (model, context, options) => native.streamSimple(model, context, {
       ...options,
-      fetch: (input, init) => {
+      fetch: async (input, init) => {
         // Codex's SDK overwrites User-Agent after merging option headers.
         const headers = new Headers(init?.headers)
         for (const [key, value] of Object.entries(attributionHeaders())) headers.set(key, value)
-        return (options?.fetch ?? globalThis.fetch)(input, { ...init, headers })
+        const response = await (options?.fetch ?? globalThis.fetch)(input, { ...init, headers })
+        const authorization = headers.get('authorization')
+        if (response.status === 401 && authorization?.startsWith('Bearer ')) {
+          rejectCodexAccessToken(config.authFile, authorization.slice(7))
+        }
+        return response
       },
     }),
     // The request's validated OAuth access token is supplied as pi-ai's key override.

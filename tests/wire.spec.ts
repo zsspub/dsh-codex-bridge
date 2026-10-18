@@ -1,8 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { BlockAssembler, createToolResultMessage, ReasoningEffortId, attributionHeaders, type StreamChunk } from '@deepseek-ai/dsh-llm'
 import { z } from 'zod'
+import { readFile, writeFile } from 'node:fs/promises'
 import { createCodexAdapter } from '../src/adapter.js'
-import { authFixture, config, mockEndpoint, sse, textEvents } from './helpers.js'
+import { readCodexAccessToken } from '../src/auth.js'
+import { CodexLogin } from '../src/login.js'
+import { loginView } from '../src/settings-login.js'
+import { authFixture, config, fakeToken, mockEndpoint, sse, textEvents } from './helpers.js'
 
 const cleanups: Array<() => Promise<unknown>> = []
 afterEach(async () => { await Promise.all(cleanups.splice(0).map(cleanup => cleanup())) })
@@ -107,5 +111,30 @@ describe('native Codex HTTP/SSE protocol', () => {
     const result = await collect(adapter.stream({ provider: 'codex-bridge', model: 'gpt-6-sol', messages: [] }))
     expect(result.assembler.finish).toMatchObject({ kind: 'error', failure: { code: 'PI_AI_ERROR', message: expect.stringContaining('usage limit') } })
     expect(endpoint.requests).toHaveLength(1)
+    await expect(readCodexAccessToken(auth.path)).resolves.toBe(fakeToken())
+  })
+
+  it('marks a server-rejected token expired before its JWT expiry and accepts a newly authorized token', async () => {
+    const auth = await authFixture()
+    const endpoint = await mockEndpoint([
+      response => response.writeHead(401, { 'content-type': 'application/json' }).end('{"error":{"message":"Your authentication token has expired.","code":"token_expired"}}'),
+      sse(textEvents()),
+    ])
+    const settings = config({ authFile: auth.path, baseURL: endpoint.url })
+    const login = new CodexLogin(settings)
+    cleanups.push(auth.cleanup, endpoint.cleanup, () => login.dispose())
+    const before = await readFile(auth.path)
+    const adapter = createCodexAdapter(settings)
+    const options = { provider: 'codex-bridge', model: 'gpt-6-sol', messages: [] }
+    expect((await collect(adapter.stream(options))).assembler.finish?.kind).toBe('error')
+    expect(await loginView(settings, login)).toEqual({ authenticated: false, credential: 'expired', phase: 'idle' })
+    expect(await readFile(auth.path)).toEqual(before)
+    await expect(collect(adapter.stream(options))).rejects.toMatchObject({ code: 'CODEX_AUTH_EXPIRED' })
+    expect(endpoint.requests).toHaveLength(1)
+    const rotated = fakeToken(4_102_444_800, 'new-account')
+    await writeFile(auth.path, JSON.stringify({ tokens: { access_token: rotated } }))
+    expect((await collect(adapter.stream(options))).assembler.finish).toEqual({ kind: 'stop' })
+    expect(endpoint.requests[1]!.headers.authorization).toBe(`Bearer ${rotated}`)
+    expect(await loginView(settings, login)).toEqual({ authenticated: true, credential: 'valid', phase: 'idle' })
   })
 })

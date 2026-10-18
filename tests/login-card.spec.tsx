@@ -5,7 +5,7 @@ import { LoginPanel } from '../src/client/LoginCard.js'
 import { en, zh, type LoginKey } from '../src/client/locales.js'
 import { createLoginApi } from '../src/client/api.js'
 import type { ClientConnectionRpc } from '@deepseek-ai/dsh-client-connection/client'
-import { BROWSER_LOGIN_PATH, browserAuthorizationUrlSchema, type LoginView } from '../src/protocol.js'
+import { browserAuthorizationUrlSchema, type LoginView } from '../src/protocol.js'
 
 vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
   Button: ({ children, variant: _variant, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: string }) => createElement('button', props, children),
@@ -26,15 +26,16 @@ describe('Codex Settings card', () => {
   for (const [locale, dict] of Object.entries({ zh, en })) for (const [name, status] of Object.entries(states)) {
     it(`renders ${name} with ${locale} copy and its available actions`, () => {
       const html = renderToStaticMarkup(<LoginPanel t={key => dict[key]} status={status} busy={false}
+        browserURL="https://auth.openai.com/oauth/authorize?state=fixture"
         onLogin={() => {}} onCancel={() => {}} onRefresh={() => {}} />)
       expect(html).toMatchSnapshot()
       if (name === 'forbidden') expect(html).toContain(dict.forbidden)
       expect(html).not.toContain('npm install')
       expect(html).not.toContain('0.162.1')
-      if (name === 'authorized') { expect(html).toContain(dict.signedIn); expect(html).not.toContain(dict.login) }
+      if (name === 'authorized') { expect(html).toContain(dict.signedIn); expect(html).toContain(dict.relogin); expect(html).toContain(dict.deviceLogin) }
       if (name === 'missing' || name === 'expired') { expect(html).toContain(dict.login); expect(html).toContain(dict.deviceLogin) }
       if (name === 'device') { expect(html).toContain('ABCD-EFGHI'); expect(html).toContain('https://auth.openai.com/codex/device'); expect(html).toContain(dict.openVerification) }
-      if (name === 'waiting') { expect(html).toContain(BROWSER_LOGIN_PATH); expect(html).toContain(dict.openBrowserLogin); expect(html).toContain('target="_blank"'); expect(html).toContain('rel="noopener noreferrer"') }
+      if (name === 'waiting') { expect(html).toContain('https://auth.openai.com/oauth/authorize?state=fixture'); expect(html).toContain(dict.openBrowserLogin); expect(html).toContain('target="_blank"'); expect(html).toContain('rel="noopener noreferrer"') }
       if (name === 'waiting' || name === 'device') { expect(html).toContain(dict.cancel); expect(html).not.toContain(dict.login) }
     })
   }
@@ -62,6 +63,16 @@ describe('Codex Settings card', () => {
       'https://attacker.test/oauth/authorize?state=fixture', 'https://user:password@auth.openai.com/oauth/authorize?state=fixture',
       'https://auth.openai.com:8080/oauth/authorize?state=fixture', 'https://auth.openai.com/oauth/authorize?state=fixture#redirect',
       'https://auth.openai.com/another/path', 'javascript:alert(1)']) expect(browserAuthorizationUrlSchema.safeParse(url).success).toBe(false)
+  })
+
+  it('resolves the pending browser link through Connection and rejects untrusted destinations', async () => {
+    const url = 'https://auth.openai.com/oauth/authorize?state=fixture'
+    const call = vi.fn<ClientConnectionRpc['call']>().mockResolvedValue({ ok: true, value: { url } })
+    const api = createLoginApi({ call })
+    expect(await api.browserURL()).toBe(url)
+    expect(call).toHaveBeenCalledWith('/api', 'codex-bridge/login/url', {}, undefined)
+    call.mockResolvedValueOnce({ ok: true, value: { url: 'https://untrusted.example/login' } })
+    await expect(api.browserURL()).rejects.toThrow()
   })
 
   it.each(Object.entries({ zh, en }))('shows a recoverable query failure instead of an endless loading state in %s', (_locale, dictionary) => {

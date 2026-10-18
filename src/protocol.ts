@@ -5,7 +5,7 @@ import { z } from 'zod'
 export const SETTINGS_NAMESPACE = 'dsh-codex-bridge'
 
 /** Endpoints served by the authenticated Connection Fetch registry. */
-export const LOGIN_ENDPOINTS = ['status', 'login/start', 'login/cancel'] as const
+export const LOGIN_ENDPOINTS = ['status', 'login/start', 'login/cancel', 'login/url'] as const
 /** Authenticated navigation route; the OAuth URL is omitted from status JSON. */
 export const BROWSER_LOGIN_PATH = '/api/codex-bridge/login/open'
 /** Restrict SDK authorization links to the OpenAI HTTPS authorization page. */
@@ -14,6 +14,8 @@ export const browserAuthorizationUrlSchema = z.string().max(16_384).url().refine
   try { url = new URL(value) } catch (_error) { return false }
   return url.origin === 'https://auth.openai.com' && url.pathname === '/oauth/authorize' && !url.username && !url.password && !url.hash
 })
+/** Explicit, authenticated handoff to the pending HTTPS authorization page. */
+export const browserLoginLinkSchema = z.strictObject({ url: browserAuthorizationUrlSchema })
 /** Login choices supported by the SDK. */
 export const loginMethodSchema = z.enum(['browser', 'device'])
 /** Selected authorization flow. */

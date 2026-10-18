@@ -9,19 +9,19 @@
 需要 Node `^22.19.0 || >=24.0.0`。公网 npm 包包含预编译服务端 ESM、浏览器模块和类型声明，安装时无需构建插件；pnpm 仍会安装运行时依赖。使用 DSH 官方插件管理命令安装：
 
 ```sh
-dsh plugin --profile web add @zengshushu/dsh-codex-bridge@0.1.15
+dsh plugin --profile web add @zengshushu/dsh-codex-bridge@0.1.16
 ```
 
 也可在 DSH 插件市场选择本地压缩包，或通过命令安装 tgz：
 
 ```sh
-dsh plugin --profile web add /path/to/zengshushu-dsh-codex-bridge-0.1.15.tgz
+dsh plugin --profile web add /path/to/zengshushu-dsh-codex-bridge-0.1.16.tgz
 ```
 
 macOS 桌面应用使用 `desktop` Profile。通过应用自带的 CLI 安装本地包：
 
 ```sh
-"/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh" plugin --profile desktop add /path/to/zengshushu-dsh-codex-bridge-0.1.15.tgz
+"/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh" plugin --profile desktop add /path/to/zengshushu-dsh-codex-bridge-0.1.16.tgz
 ```
 
 安装完成后退出并重新打开 DeepSeek Harness，在 **设置 → 模型 → Codex Bridge** 检查登录状态。桌面应用自带运行时和包管理器，无需另行安装 CLI。
@@ -36,12 +36,12 @@ macOS 桌面应用使用 `desktop` Profile。通过应用自带的 CLI 安装本
 
 ```sh
 dsh plugin --profile web remove dsh-codex-bridge
-dsh plugin --profile web add @zengshushu/dsh-codex-bridge@0.1.15
+dsh plugin --profile web add @zengshushu/dsh-codex-bridge@0.1.16
 ```
 
 ## 登录
 
-打开 **设置 → 模型 → Codex Bridge**，选择 **网页登录** 或 **设备码登录**。页面不再检测 CLI，不显示 CLI 安装提示。网页登录准备完成后，点击 **打开登录页面** 在新标签页完成授权；设备码登录会显示一次性验证码与 **打开认证页面**。等待期间自动刷新，可取消登录；关闭设置不会中断授权。
+打开 **设置 → 模型 → Codex Bridge**，选择 **网页登录** 或 **设备码登录**。已有凭据时仍可点击 **重新登录** 或 **设备码登录**，恢复被认证服务拒绝的登录。页面不再检测 CLI，不显示 CLI 安装提示。网页登录准备完成后，点击 **打开登录页面** 在新标签页完成授权；设备码登录会显示一次性验证码与 **打开认证页面**。等待期间自动刷新，可取消登录；关闭设置不会中断授权。
 
 设备码登录无需回调端口，适合远程 DSH。账号可能需要在 ChatGPT 的安全设置中启用设备码授权。网页登录的 SDK 使用 `http://localhost:1455/auth/callback` 回调；浏览器与 DSH 不在同一机器时，在浏览器所在电脑建立转发并保持运行：
 
@@ -59,7 +59,7 @@ ssh -N -L 1455:127.0.0.1:1455 user@your-dsh-server
 
 默认凭据为 `$DSH_HOME/plugins/dsh-codex-bridge/codex/auth.json`，未设置 `DSH_HOME` 时使用 `~/.dsh`。插件拒绝将凭据写入本机 `.codex` 或环境变量 `CODEX_HOME` 指定的目录。新登录保存插件标记的版本 1 OAuth 文件，父目录权限为 `0700`，文件为 `0600`，通过临时文件和原子替换提交。保存与刷新使用文件锁，避免并发请求重复使用已轮换的刷新令牌。
 
-模型请求发现插件凭据过期时，通过 SDK 刷新并保存新凭据；设置状态查询只读取文件，不发起续期。续期失败保留原文件，返回 `CODEX_AUTH_REFRESH_FAILED`，检查网络或重新登录。令牌、刷新令牌和完整授权 URL 不进入设置状态 JSON 或 DSH 日志。网页登录通过已认证的 `/api/codex-bridge/login/open` 跳转，响应使用 `no-store` 和 `no-referrer`，链接仅在当前授权等待期间有效。
+模型请求发现插件凭据过期时，通过 SDK 刷新并保存新凭据；设置状态查询只读取文件，不发起续期。认证服务返回 HTTP 401 后，本次服务运行会按令牌指纹将对应缓存标记失效，即使 JWT 的本地到期时间尚未到，设置也不再显示已登录。下一次请求会尝试续期插件管理的新格式凭据；旧版 CLI 缓存仍须重新授权。续期失败保留原文件，返回 `CODEX_AUTH_REFRESH_FAILED`，检查网络或重新登录。令牌、刷新令牌和完整授权 URL 不进入设置状态 JSON 或 DSH 日志。网页登录通过已认证的 Connection RPC 单独获取经校验的 OpenAI HTTPS 授权链接，兼容 macOS 桌面应用的外部浏览器打开规则；链接不进入状态快照、命令输出或日志，仅在当前授权等待期间提供。旧的 `/api/codex-bridge/login/open` 跳转入口继续保留。响应使用 `no-store`，授权链接使用 `noopener noreferrer`。
 
 从 `0.1.10` 或更早版本升级到 `0.1.11` 后，不再需要 CLI。原插件专用目录中的旧 CLI 登录缓存，在 access token 有效时可继续读取；插件不自动迁移或刷新其中的 refresh token，过期后请重新授权。新格式由插件管理，旧插件不支持读取；回退旧版本时需要重新使用旧版登录。旧配置中的 `codexCommand`、`cliDetectionTimeoutMs` 和 `loginKillTimeoutMs` 已无作用，可移除；`authFile` 保持兼容。
 

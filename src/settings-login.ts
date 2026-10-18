@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { readCodexAccessToken } from './auth.js'
 import type { Config } from './config.js'
 import type { CodexLogin } from './login.js'
-import { BROWSER_LOGIN_PATH, LOGIN_ENDPOINTS, loginMethodSchema, loginPath, type LoginEndpoint, type LoginView } from './protocol.js'
+import { BROWSER_LOGIN_PATH, LOGIN_ENDPOINTS, browserLoginLinkSchema, loginMethodSchema, loginPath, type LoginEndpoint, type LoginView } from './protocol.js'
 
 const emptyPayload = z.strictObject({})
 const startPayload = z.strictObject({ method: loginMethodSchema })
@@ -56,11 +56,14 @@ export async function handleLoginRequest(request: Request, endpoint: LoginEndpoi
   }
   const payload = (endpoint === 'login/start' ? startPayload : emptyPayload).safeParse(parsed.data.payload)
   if (!payload.success) return new Response(null, { status: 400 })
-  let result: { ok: true; value: LoginView } | { ok: false; error: { code: string; message: string; details: object } }
+  let result: { ok: true; value: LoginView | { url: string } } | { ok: false; error: { code: string; message: string; details: object } }
   try {
     if (endpoint === 'login/start') await login.start(startPayload.parse(payload.data).method)
     if (endpoint === 'login/cancel') await login.cancel()
-    result = { ok: true, value: await loginView(config, login) }
+    if (endpoint === 'login/url') {
+      if (!login.browserURL) throw new LlmError('Codex 网页登录尚未启动或已结束。', 'CODEX_LOGIN_INACTIVE')
+      result = { ok: true, value: browserLoginLinkSchema.parse({ url: login.browserURL }) }
+    } else result = { ok: true, value: await loginView(config, login) }
   } catch (error) {
     result = { ok: false, error: { code: error instanceof LlmError ? error.code : 'CODEX_LOGIN_FAILED', message: 'Codex login did not complete', details: {} } }
   }

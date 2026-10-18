@@ -1,6 +1,6 @@
 {
   "name": "@zengshushu/dsh-codex-bridge",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "Third-party Codex model provider for DeepSeek Harness with plugin-owned SDK browser and device code authentication",
   "type": "module",
   "main": "lib/index.js",
