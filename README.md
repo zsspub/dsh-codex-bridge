@@ -1,6 +1,6 @@
 # @zengshushu/dsh-codex-bridge
 
-第三方 DeepSeek Harness 模型插件，兼容 **DSH `0.2.1-rc.2`**。通过 SDK 直接完成 ChatGPT 网页登录或设备码登录，以 `codex-bridge` 提供方调用 Codex 模型。**无需安装 Codex CLI**。插件使用自己的凭据目录，不继承本机 Codex 登录；DSH 负责会话、工具执行、日志和恢复。模型适配复用公开的 `PiAiAdapter` 与 `@earendil-works/pi-ai` Codex 协议实现。
+第三方 DeepSeek Harness 模型插件，兼容 **DSH `0.2.1-rc.3`**。通过 SDK 直接完成 ChatGPT 网页登录或设备码登录，以 `codex-bridge` 提供方调用 Codex 模型。**无需安装 Codex CLI**。插件使用自己的凭据目录，不继承本机 Codex 登录；DSH 负责会话、工具执行、日志和恢复。模型适配复用公开的 `PiAiAdapter` 与 `@earendil-works/pi-ai` Codex 协议实现。
 
 支持流式文本、思考级别、工具调用、工具结果续接、加密思考记录重放、用量统计、取消和 DSH 持久化图片输入。模型目录完全跟随宿主 pi-ai 的 Codex 目录；目录不表示账号获得模型权限，实际请求才能确认。
 
@@ -28,7 +28,7 @@ macOS 桌面应用使用 `desktop` Profile。通过应用自带的 CLI 安装本
 
 从 DSH 源码运行时使用 `pnpm dsh plugin --profile web add ...`。升级后重启 DSH，再刷新浏览器；systemd 部署可执行 `systemctl restart deepseek-harness.service`。插件不会自动改动 DSH 的源码、默认模型或安装其他程序。
 
-从 0.1.14 开始，插件适配 DSH `0.2.1-rc.2`，通过 peer dependency 复用宿主的 `@earendil-works/pi-ai@1.1.0`，不安装另一套 SDK 或模型目录包。DSH `0.2.1-rc.2` 的 `dsh-llm-pi-ai` 提供该版本；宿主 Profile 必须能解析这项依赖。兼容范围锁定实际测试版本，其他版本需重新验证。
+从 0.1.14 开始，插件通过 peer dependency 复用宿主的 `@earendil-works/pi-ai@1.1.0`，不安装另一套 SDK 或模型目录包。当前适配依据为本机应用自带 CLI 的 `--version` 输出 `0.2.1-rc.3` 及客户端自带 API，DSH 依赖锁定同一版本；保留宿主的 Cordis `4.0.5`、Schemastery `3.18.5` 和 pi-ai `1.1.0`。宿主 Profile 必须能解析 pi-ai。本次不升级 DSH，也不追踪最新版本；其他版本需重新验证。
 
 预编译 npm 包和 tgz 不要求为插件增加构建授权。若安装器仍报告 `@google/genai` 或 `protobufjs` 的构建脚本被拦截，需要按错误明细检查宿主已有依赖的 pnpm 策略；本版本不再直接或通过目录别名引入新的 pi-ai 依赖树。GitHub 源码安装会执行 `prepare`，仍需要授权 `@zengshushu/dsh-codex-bridge` 构建；开发环境还需要运行 esbuild 的安装脚本。日常安装优先使用 npm 包。
 
@@ -101,9 +101,11 @@ Codex 订阅接口不支持 `temperature` 和 `maxTokens`，插件返回 `UNSUPP
 ## 开发与验收
 
 ```sh
-pnpm install
+pnpm install --frozen-lockfile
+pnpm build
 pnpm typecheck
 pnpm test
+pnpm pack --dry-run
 pnpm pack --pack-destination /tmp
 CODEX_TEST_MODEL=gpt-6-sol pnpm test:live
 ```
